@@ -2,85 +2,116 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>الحارس</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header style="display:flex;align-items:center;gap:12px;padding:6px 4px">
-  <div style="font-size:34px">🛡️</div>
-  <div><h1>الحارس</h1><div class="sub">سلامة صحراوية — يعمل بلا إنترنت</div></div>
+<header class="card brand">
+  <div class="brandRow">
+    <svg class="shield" viewBox="0 0 64 72" aria-hidden="true">
+      <defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f6d47c"/><stop offset="1" stop-color="#b8860b"/>
+      </linearGradient></defs>
+      <path d="M32 3 L58 12 V34 C58 52 47 63 32 69 C17 63 6 52 6 34 V12 Z" fill="#0d1526" stroke="url(#gg)" stroke-width="3.5"/>
+      <path d="M32 16 L36.5 27 L48 28 L38.5 35.5 L41.5 47 L32 40.5 L22.5 47 L25.5 35.5 L16 28 L27.5 27 Z" fill="url(#gg)"/>
+    </svg>
+    <div>
+      <h1>الحارس</h1>
+      <p class="tag">سلامة صحراوية — يعمل بلا إنترنت</p>
+    </div>
+  </div>
+  <div id="sceneWrap"><div id="caravan"></div></div>
+  <div class="row spread sceneBar">
+    <span id="animState" class="dim">قافلتك تمشي…</span>
+    <button id="btnAnim" class="btn small">إيقاف الحركة</button>
+  </div>
 </header>
 
-<div class="card" id="sceneCard">
-  <canvas id="scene"></canvas>
-  <div class="row" style="margin-top:8px;justify-content:space-between;align-items:center">
-    <span class="mut" id="sceneNote">قافلتك تمشي…</span>
-    <button id="btnMotion">إيقاف الحركة</button>
+<section class="card">
+  <h2>عدّاد قوة إشارة</h2>
+  <div class="gauges">
+    <div class="gauge"><div class="gname">4G</div><div class="bars" id="bars4"></div><div class="dbm" id="dbm4">—</div><div class="glabel" id="lab4">…</div></div>
+    <div class="gauge"><div class="gname">2G</div><div class="bars" id="bars2"></div><div class="dbm" id="dbm2">—</div><div class="glabel" id="lab2">…</div></div>
   </div>
-</div>
-
-<div class="card">
-  <h2>عداد قوة إشارة</h2>
+  <p class="dim" id="netState">…</p>
   <div class="row">
-    <div class="gauge"><div class="net">4G</div><div class="bars" id="bars4"><i></i><i></i><i></i><i></i></div><div class="dbm" id="dbm4">—</div><div class="word" id="word4">…</div></div>
-    <div class="gauge"><div class="net">2G</div><div class="bars" id="bars2"><i></i><i></i><i></i><i></i></div><div class="dbm" id="dbm2">—</div><div class="word" id="word2">…</div></div>
+    <button class="btn" id="btnNetSettings">فتح إعدادات الشبكة (فرض 2G)</button>
+    <button class="btn" id="btnLogFlicker">سجّل لمعة هنا</button>
   </div>
-  <div class="mut" id="carrierLine" style="margin-top:8px">…</div>
-  <div class="row" style="margin-top:8px">
-    <button id="btn2g" style="flex:1">فتح إعدادات الشبكة (فرض 2G)</button>
-    <button id="btnWhisper" style="flex:1">سجّل لمعة هنا</button>
-  </div>
-</div>
+</section>
 
-<button id="btnSos">استغاثة SOS</button>
-<div class="warn hidden" id="sosWarn" style="margin-top:6px">أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل.</div>
-
-<div class="card hidden" id="sosPanel">
-  <div id="sosStatus">الاستغاثة مُسلَّحة — أراقب الإشارة</div>
-  <div class="mut" id="sosDetail" style="text-align:center;margin-top:6px"></div>
-  <div id="idCard"><div class="mut" style="color:#555">إن وجدتَني فاقدًا للوعي — أنا</div><div class="nm" id="idName">—</div><div id="idLoc" style="font-size:14px"></div></div>
-  <button id="btnBeacon">تشغيل المنارة (صوت + وميض)</button>
-  <button id="btnCancel"><span id="cancelProg"></span><span style="position:relative">إلغاء الاستغاثة — اضغط مطوّلًا</span></button>
-</div>
-
-<div class="card">
-  <h2>سهم اتجاه العودة</h2>
-  <div id="arrowBox"><div id="arrow">➤</div><div id="arrowText" class="mut">ثبّت مكانًا واختره هدفًا</div></div>
-  <div class="row"><button id="btnNearWhisper" style="flex:1">الهدف: أقرب لمعة معروفة</button><button id="btnClearTarget" style="flex:1">الهدف: مكان محفوظ</button></div>
-</div>
-
-<div class="card">
+<section class="card">
   <h2>أماكن محفوظة</h2>
-  <div id="placesList"><div class="mut">لا أماكن بعد — التطبيق يبدأ فارغًا، وأنت تثبّت أماكنك بنفسك.</div></div>
-  <input id="placeName" placeholder="اسم المكان (مخيم، بئر، محطة…)">
-  <button id="btnAddPlace" class="gold" style="width:100%">ثبّت مكاني الحالي</button>
-</div>
+  <div id="placesList"></div>
+  <div class="row">
+    <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)">
+    <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
+  </div>
+</section>
 
-<div class="card">
+<section class="card">
+  <h2>سهم اتجاه العودة</h2>
+  <div class="row">
+    <select id="arrowTarget" class="inp grow"></select>
+    <div id="arrowBox"><div id="arrowGlyph">➤</div><div id="arrowDist">—</div></div>
+  </div>
+  <p class="dim">اختر مكانًا محفوظًا فيشير السهم إليه من موضعك الحالي.</p>
+</section>
+
+<section class="card">
+  <h2>حزمة خرائط للتحميل</h2>
+  <p class="dim">قادمة في المرحلة التالية: حزمة بلدك تُحمَّل مرة واحدة (تحتاج إنترنت عند التحميل فقط) ثم تعمل بلا إنترنت أبدًا — خرائط OpenStreetMap ورادار أبراج OpenCellID.</p>
+</section>
+
+<button id="btnSOS">🆘 استغاثة SOS</button>
+
+<section class="card" id="sosPanel">
+  <div id="sosIdle">
+    <p>زرّ الاستغاثة يبني رسالتك الآن ويُبقي موقعك دافئًا — لا انتظار عند الخطر.</p>
+    <p class="dim" id="sosReadyState">…</p>
+  </div>
+  <div id="sosArmed" class="hidden">
+    <p class="armedText">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
+    <p class="dim" id="sosArmInfo"></p>
+    <button class="btn danger" id="btnCancelSOS">إلغاء الاستغاثة (اضغط مطوّلًا)</button>
+    <p class="dim">الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.</p>
+  </div>
+  <div id="sosSent" class="hidden">
+    <p class="sentText">✅ وصلت رسالة الاستغاثة إلى المستقبِل.</p>
+    <button class="btn danger" id="btnCancelAfter">أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)</button>
+    <p class="dim">ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.</p>
+  </div>
+</section>
+
+<section class="card">
   <h2>خريطة اللمعات</h2>
-  <div class="mut" id="whisperInfo">لا لمعات مسجلة بعد. كل موضع تلمع فيه شبكة يُحفظ هنا بصمت.</div>
-</div>
+  <div id="flickerList"></div>
+  <button class="btn" id="btnNearestFlicker">دلّني إلى أقرب لمعة معروفة</button>
+</section>
 
-<div class="card">
-  <h2>حزم الخرائط والأبراج</h2>
-  <div class="mut">تُفتح في المرحلة القادمة: حزم بلدان من بيانات OpenStreetMap وOpenCellID تُحمَّل مرة واحدة ثم تعمل بلا إنترنت أبدًا. الموقع من الأقمار مجاني دائمًا؛ الخريطة بيانات تُحمَّل مرة.</div>
-</div>
+<section class="card">
+  <h2>منارة وبطاقة هوية</h2>
+  <div class="row">
+    <button class="btn" id="btnBeacon">تشغيل المنارة</button>
+    <button class="btn hidden" id="btnBeaconOff">إيقاف المنارة</button>
+  </div>
+  <div id="idCard" class="idcard"></div>
+</section>
 
-<div class="card">
-  <h2>الإعداد — القوس المشدود</h2>
-  <div class="mut">رسالتك تُبنى هنا مرة واحدة وتبقى جاهزة؛ عند الخطر لا يبقى إلا الزرّ.</div>
-  <input id="inName" placeholder="اسمك الكامل">
-  <input id="inRecipients" placeholder="أرقام المستقبلين (حتى 3، بفاصلة) مثال: +96890000000">
-  <label class="mut">نص رسالة الاستغاثة — {name} الاسم، {loc} الموقع، {bat} البطارية، {time} الوقت</label>
-  <textarea id="inTemplate"></textarea>
-  <label class="mut">نص رسالة الطمأنة بعد الإلغاء</label>
-  <textarea id="inSafe"></textarea>
-  <button id="btnSaveSetup" class="gold" style="width:100%">حفظ الإعداد</button>
-  <div class="ok hidden" id="setupOk">حُفظ ✓ قوسك مشدود.</div>
-</div>
+<section class="card">
+  <h2>الإعداد</h2>
+  <label>اسمك<input id="inName" class="inp" placeholder="الاسم الكامل"></label>
+  <label>أرقام الاستغاثة (حتى ٣، واحد في كل سطر)<textarea id="inNumbers" class="inp" rows="3" placeholder="+968 …"></textarea></label>
+  <label>نص الرسالة — المتغيرات: {name} {loc} {bat} {time}
+    <textarea id="inMsg" class="inp" rows="3"></textarea></label>
+  <label>نص رسالة الطمأنينة<textarea id="inOkMsg" class="inp" rows="2"></textarea></label>
+  <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
+  <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
+</section>
 
-<div class="foot">الحارس لا يرسل من العدم أبدًا — ينتظر أول لمعة شبكة فيُطلق رسالتك في أجزاء من الثانية.<br>بلا إنترنت، بلا حسابات، مجاني لكل إنسان في كل بلد.</div>
+<footer class="dim center">الحارس 1.1 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+<script src="art.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
