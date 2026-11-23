@@ -150,7 +150,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>show
 
 /* ---------- caravan: painted caravan, 2-pose walk cycle, endless groups of 4 ---------- */
 const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=88,SHIFT=0,lastTs=0;
+let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=92,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
   wrap.style.backgroundImage='url('+ART.scene+')';
@@ -162,7 +162,7 @@ function caravanInit(){
     d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
     layer.appendChild(d);camelEls.push(d);
   }
-  const SP=CDW+16,GG=54;
+  const SP=CDW+14,GG=54;
   for(let g=0;g<3;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
   TRACK=3*(4*SP+GG);
 }
