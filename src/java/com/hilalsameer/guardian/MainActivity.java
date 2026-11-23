@@ -62,11 +62,11 @@ public class MainActivity extends Activity {
                     try {
                         java.util.List<String> p = req.getUrl().getPathSegments();
                         String layer = p.get(0);
-                        String ext = layer.equals("sat") ? "jpg" : "png";
+                        String ext = "jpg";
                         File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
                                 p.get(1) + "/" + p.get(2) + "/" + p.get(3) + "." + ext);
                         if (f.exists() && f.length() > 0)
-                            return new WebResourceResponse(ext.equals("jpg") ? "image/jpeg" : "image/png",
+                            return new WebResourceResponse("image/jpeg",
                                     null, new FileInputStream(f));
                     } catch (Exception ignored) {}
                     byte[] empty = android.util.Base64.decode(
@@ -269,7 +269,7 @@ public class MainActivity extends Activity {
                 boolean aborted = false;
                 try {
                     for (String layer : layers) {
-                        String ext = layer.equals("sat") ? "jpg" : "png";
+                        String ext = "jpg";
                         for (int z = 7; z <= 13 && !packCancel && !aborted; z++) {
                             int[] r = tileRange(lat, lng, radiusForZ(radiusKm, z), z);
                             for (int x = r[0]; x <= r[1] && !packCancel && !aborted; x++) {
@@ -280,7 +280,7 @@ public class MainActivity extends Activity {
                                     if (f.exists() && f.length() > 0) { done++; continue; }
                                     String url = layer.equals("sat")
                                             ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x
-                                            : "https://tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
+                                            : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/" + z + "/" + y + "/" + x;
                                     long got = fetchTile(url, f);
                                     if (got > 0) { bytes += got; consecFails = 0;
                                         synchronized (sessionFiles) { sessionFiles.add(f); } }

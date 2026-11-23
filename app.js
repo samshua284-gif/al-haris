@@ -245,7 +245,7 @@ function initMap(){
   if(!window.L||!GN)return;
   if(!mapObj){
     mapObj=L.map('mapView');
-    mapRoads=L.tileLayer('https://tiles.local/roads/{z}/{x}/{y}',{minZoom:3,maxZoom:13,attribution:'© OpenStreetMap contributors'});
+    mapRoads=L.tileLayer('https://tiles.local/roads/{z}/{x}/{y}',{minZoom:3,maxZoom:13,attribution:'© Esri, HERE, Garmin, © OpenStreetMap contributors'});
     mapSat=L.tileLayer('https://tiles.local/sat/{z}/{x}/{y}',{minZoom:3,maxZoom:13,attribution:'© Esri, Maxar, Earthstar Geographics'});
     mapRoads.addTo(mapObj);
     mapPlaceLayer=L.layerGroup().addTo(mapObj);
