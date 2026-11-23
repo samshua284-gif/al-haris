@@ -169,10 +169,10 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>show
 
 /* ---------- caravan: painted caravan, 2-pose walk cycle, endless groups of 4 ---------- */
 const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],camelShadows=[],printPool=[],lastStep=[],printIdx=0,SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
+let motionUser=true,camelEls=[],camelShadows=[],printPool=[],lastStep=[],printIdx=0,SLOTS=[],TRACK=0,CDW=0,CH=52,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
-  $('sceneBg').src=ART.scene;$('sceneFg').src=ART.fgtree;
+  $('sceneBg').src=ART.scene;
   const k=CH/ART.cellH;CDW=Math.round(ART.cellW*k);
   for(let i=0;i<8;i++){
     const d=document.createElement('div');d.className='camel';
