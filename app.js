@@ -213,7 +213,7 @@ function caravanLoop(ts){
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const ph=(SHIFT+i*11)/stridePx;
-    const uu=ph-Math.floor(ph);const fr=uu<0.35?0:uu<0.5?2:uu<0.85?1:2;
+    const uu=ph-Math.floor(ph);const fr=uu<0.30?0:uu<0.50?3:uu<0.80?1:2;
     const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.3:0;
     d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
