@@ -22,7 +22,8 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #sceneWrap{position:relative;height:252px;overflow:hidden;background:#1a0f08;direction:ltr}
 #sceneBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%;filter:brightness(1.05) saturate(1.06)}
 .cshadow{position:absolute;left:0;bottom:71px;height:7px;border-radius:50%;background:rgba(59,32,8,.38);filter:blur(2.5px);will-change:transform}
-#sceneFg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%;clip-path:inset(0 66% 0 0);-webkit-mask-image:linear-gradient(to right,#000 24%,transparent 33%);mask-image:linear-gradient(to right,#000 24%,transparent 33%);pointer-events:none}
+#sceneFg{position:absolute;inset:0;background-size:cover;background-position:50% 30%;-webkit-mask-size:cover;mask-size:cover;-webkit-mask-position:50% 30%;mask-position:50% 30%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none}
+.print{position:absolute;left:0;bottom:70px;width:8px;height:3.5px;border-radius:50%;background:rgba(94,58,22,.55);pointer-events:none;will-change:opacity,transform}
 @keyframes drift{from{transform:scale(1.09) translateX(1.1%)}to{transform:scale(1.09) translateX(-1.1%)}}
 #sceneWrap.frozen #sceneBg{animation-play-state:paused}
 #caravan{position:absolute;inset:0}
