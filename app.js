@@ -66,6 +66,7 @@ window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.
 /* ---------- SOS panels ---------- */
 function renderSos(){
   const armed=!!state.armed,del=!!state.delivered,sp=!!state.safePending;
+  if(armed&&curPage!=='home')showPage('home');
   $('sosIdle').classList.toggle('hidden',armed);
   $('sosArmed').classList.toggle('hidden',!(armed&&!del));
   $('sosSent').classList.toggle('hidden',!(armed&&del));
@@ -112,9 +113,9 @@ $('btnAddPlace').onclick=()=>{
 };
 $('btnLogFlicker').onclick=()=>{GN&&GN.addWhisper();setTimeout(refresh,450)};
 $('btnNetSettings').onclick=()=>{GN&&GN.openNetworkSettings()};
-$('btnNearestFlicker').onclick=()=>{$('arrowTarget').value='w';renderArrow();window.scrollTo({top:0,behavior:'smooth'})};
+$('btnNearestFlicker').onclick=()=>{$('arrowTarget').value='w';renderArrow()};
 $('btnSOS').onclick=()=>{
-  if(!state.name||!state.recipients){alert('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في بطاقة «الإعداد» أسفل الصفحة)');window.scrollTo(0,document.body.scrollHeight);return}
+  if(!state.name||!state.recipients){alert('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)');showPage('setup');return}
   GN&&GN.armSos();setTimeout(refresh,300);
 };
 function longPress(btn,fn){
@@ -137,9 +138,19 @@ function fillSetup(){
   $('inMsg').value=state.template||'';$('inOkMsg').value=state.safeTemplate||'';
 }
 
+/* ---------- tabs ---------- */
+let curPage='home';
+function showPage(name){
+  curPage=name;
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===name));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPage(t.dataset.page)));
+
 /* ---------- caravan: painted caravan, 2-pose walk cycle, endless groups of 4 ---------- */
 const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],POS=[],SP=0,CYCLE=0,CDW=0,CH=118,lastTs=0,frameFlip=false;
+let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=88,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
   wrap.style.backgroundImage='url('+ART.scene+')';
@@ -151,12 +162,13 @@ function caravanInit(){
     d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
     layer.appendChild(d);camelEls.push(d);
   }
-  SP=CDW+22;CYCLE=SP*camelEls.length;
-  const W0=wrap.clientWidth||360;
-  POS=camelEls.map((_,i)=>W0-40+i*SP);
+  const SP=CDW+16,GG=54;
+  for(let g=0;g<3;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
+  TRACK=3*(4*SP+GG);
 }
 function motionWanted(){
   if(!motionUser)return false;
+  if(curPage!=='home')return false;
   if(state.armed)return false;
   if(typeof sig.battery==='number'&&sig.battery>=0&&sig.battery<20)return false;
   if(document.hidden)return false;
@@ -172,12 +184,11 @@ function caravanLoop(ts){
   requestAnimationFrame(caravanLoop);
   if(!camelEls.length)return;
   const dt=Math.min(50,ts-(lastTs||ts));lastTs=ts;
-  const on=motionWanted();
-  const W0=wrap.clientWidth||360;
-  if(on&&dt>0){POS=POS.map(x=>{x-=26*dt/1000;if(x<-CDW-30)x+=CYCLE;return x})}
+  if(motionWanted()&&dt>0)SHIFT=(SHIFT+36*dt/1000)%TRACK;
   const fr=Math.floor(ts/175)%2;
   camelEls.forEach((d,i)=>{
-    d.style.transform='translate3d('+POS[i]+'px,'+(on?Math.sin(ts/340+i*1.3)*1.6:0)+'px,0)';
+    let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
+    d.style.transform='translate3d('+x+'px,'+(motionWanted()?Math.sin(ts/340+i*1.3)*1.4:0)+'px,0)';
     d.style.backgroundPosition=(-fr*CDW)+'px 0px';
   });
 }

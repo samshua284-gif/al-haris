@@ -7,110 +7,139 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="card brand">
-  <div class="brandRow">
-    <svg class="shield" viewBox="0 0 64 72" aria-hidden="true">
-      <defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f6d47c"/><stop offset="1" stop-color="#b8860b"/>
-      </linearGradient></defs>
-      <path d="M32 3 L58 12 V34 C58 52 47 63 32 69 C17 63 6 52 6 34 V12 Z" fill="#0d1526" stroke="url(#gg)" stroke-width="3.5"/>
-      <path d="M32 16 L36.5 27 L48 28 L38.5 35.5 L41.5 47 L32 40.5 L22.5 47 L25.5 35.5 L16 28 L27.5 27 Z" fill="url(#gg)"/>
-    </svg>
-    <div>
-      <h1>الحارس</h1>
-      <p class="tag">سلامة صحراوية — يعمل بلا إنترنت</p>
+
+<main id="page-home" class="page active">
+  <header class="card brand">
+    <div class="brandRow">
+      <svg class="shield" viewBox="0 0 64 72" aria-hidden="true">
+        <defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f6d47c"/><stop offset="1" stop-color="#b8860b"/>
+        </linearGradient></defs>
+        <path d="M32 3 L58 12 V34 C58 52 47 63 32 69 C17 63 6 52 6 34 V12 Z" fill="#0d1526" stroke="url(#gg)" stroke-width="3.5"/>
+        <path d="M32 16 L36.5 27 L48 28 L38.5 35.5 L41.5 47 L32 40.5 L22.5 47 L25.5 35.5 L16 28 L27.5 27 Z" fill="url(#gg)"/>
+      </svg>
+      <div>
+        <h1>الحارس</h1>
+        <p class="tag">سلامة صحراوية — يعمل بلا إنترنت</p>
+      </div>
     </div>
-  </div>
-  <div id="sceneWrap"><div id="caravan"></div></div>
-  <div class="row spread sceneBar">
-    <span id="animState" class="dim">قافلتك تمشي…</span>
-    <button id="btnAnim" class="btn small">إيقاف الحركة</button>
-  </div>
-</header>
+    <div id="sceneWrap"><div id="caravan"></div></div>
+    <div class="row spread sceneBar">
+      <span id="animState" class="dim">قافلتك تمشي…</span>
+      <button id="btnAnim" class="btn small">إيقاف الحركة</button>
+    </div>
+  </header>
 
-<section class="card">
-  <h2>عدّاد قوة إشارة</h2>
-  <div class="gauges">
-    <div class="gauge"><div class="gname">4G</div><div class="bars" id="bars4"></div><div class="dbm" id="dbm4">—</div><div class="glabel" id="lab4">…</div></div>
-    <div class="gauge"><div class="gname">2G</div><div class="bars" id="bars2"></div><div class="dbm" id="dbm2">—</div><div class="glabel" id="lab2">…</div></div>
-  </div>
-  <p class="dim" id="netState">…</p>
-  <div class="row">
-    <button class="btn" id="btnNetSettings">فتح إعدادات الشبكة (فرض 2G)</button>
-    <button class="btn" id="btnLogFlicker">سجّل لمعة هنا</button>
-  </div>
-</section>
+  <section class="card">
+    <h2>عدّاد قوة إشارة</h2>
+    <div class="gauges">
+      <div class="gauge"><div class="gname">4G</div><div class="bars" id="bars4"></div><div class="dbm" id="dbm4">—</div><div class="glabel" id="lab4">…</div></div>
+      <div class="gauge"><div class="gname">2G</div><div class="bars" id="bars2"></div><div class="dbm" id="dbm2">—</div><div class="glabel" id="lab2">…</div></div>
+    </div>
+    <p class="dim" id="netState">…</p>
+    <div class="row">
+      <button class="btn" id="btnNetSettings">فتح إعدادات الشبكة (فرض 2G)</button>
+      <button class="btn" id="btnLogFlicker">سجّل لمعة هنا</button>
+    </div>
+  </section>
 
-<section class="card">
-  <h2>أماكن محفوظة</h2>
-  <div id="placesList"></div>
-  <div class="row">
-    <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)">
-    <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
-  </div>
-</section>
+  <button id="btnSOS">🆘 استغاثة SOS</button>
 
-<section class="card">
-  <h2>سهم اتجاه العودة</h2>
-  <div class="row">
-    <select id="arrowTarget" class="inp grow"></select>
-    <div id="arrowBox"><div id="arrowGlyph">➤</div><div id="arrowDist">—</div></div>
-  </div>
-  <p class="dim">اختر مكانًا محفوظًا فيشير السهم إليه من موضعك الحالي.</p>
-</section>
+  <section class="card" id="sosPanel">
+    <div id="sosIdle">
+      <p>زرّ الاستغاثة يبني رسالتك الآن ويُبقي موقعك دافئًا — لا انتظار عند الخطر.</p>
+      <p class="dim" id="sosReadyState">…</p>
+    </div>
+    <div id="sosArmed" class="hidden">
+      <p class="armedText">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
+      <p class="dim" id="sosArmInfo"></p>
+      <button class="btn danger" id="btnCancelSOS">إلغاء الاستغاثة (اضغط مطوّلًا)</button>
+      <p class="dim">الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.</p>
+    </div>
+    <div id="sosSent" class="hidden">
+      <p class="sentText">✅ وصلت رسالة الاستغاثة إلى المستقبِل.</p>
+      <button class="btn danger" id="btnCancelAfter">أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)</button>
+      <p class="dim">ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.</p>
+    </div>
+  </section>
+</main>
 
-<section class="card">
-  <h2>حزمة خرائط للتحميل</h2>
-  <p class="dim">قادمة في المرحلة التالية: حزمة بلدك تُحمَّل مرة واحدة (تحتاج إنترنت عند التحميل فقط) ثم تعمل بلا إنترنت أبدًا — خرائط OpenStreetMap ورادار أبراج OpenCellID.</p>
-</section>
+<main id="page-places" class="page">
+  <section class="card">
+    <h2>أماكن محفوظة</h2>
+    <div id="placesList"></div>
+    <div class="row">
+      <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)">
+      <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
+    </div>
+  </section>
 
-<button id="btnSOS">🆘 استغاثة SOS</button>
+  <section class="card">
+    <h2>سهم اتجاه العودة</h2>
+    <div class="row">
+      <select id="arrowTarget" class="inp grow"></select>
+      <div id="arrowBox"><div id="arrowGlyph">➤</div><div id="arrowDist">—</div></div>
+    </div>
+    <p class="dim">اختر مكانًا محفوظًا فيشير السهم إليه من موضعك الحالي.</p>
+  </section>
 
-<section class="card" id="sosPanel">
-  <div id="sosIdle">
-    <p>زرّ الاستغاثة يبني رسالتك الآن ويُبقي موقعك دافئًا — لا انتظار عند الخطر.</p>
-    <p class="dim" id="sosReadyState">…</p>
-  </div>
-  <div id="sosArmed" class="hidden">
-    <p class="armedText">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
-    <p class="dim" id="sosArmInfo"></p>
-    <button class="btn danger" id="btnCancelSOS">إلغاء الاستغاثة (اضغط مطوّلًا)</button>
-    <p class="dim">الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.</p>
-  </div>
-  <div id="sosSent" class="hidden">
-    <p class="sentText">✅ وصلت رسالة الاستغاثة إلى المستقبِل.</p>
-    <button class="btn danger" id="btnCancelAfter">أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)</button>
-    <p class="dim">ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.</p>
-  </div>
-</section>
+  <section class="card">
+    <h2>خريطة اللمعات</h2>
+    <div id="flickerList"></div>
+    <button class="btn" id="btnNearestFlicker">دلّني إلى أقرب لمعة معروفة</button>
+  </section>
 
-<section class="card">
-  <h2>خريطة اللمعات</h2>
-  <div id="flickerList"></div>
-  <button class="btn" id="btnNearestFlicker">دلّني إلى أقرب لمعة معروفة</button>
-</section>
+  <section class="card">
+    <h2>حزمة خرائط للتحميل</h2>
+    <p class="dim">قادمة في المرحلة التالية: حزمة بلدك تُحمَّل مرة واحدة (تحتاج إنترنت عند التحميل فقط) ثم تعمل بلا إنترنت أبدًا — خرائط OpenStreetMap ورادار أبراج OpenCellID.</p>
+  </section>
+</main>
 
-<section class="card">
-  <h2>منارة وبطاقة هوية</h2>
-  <div class="row">
-    <button class="btn" id="btnBeacon">تشغيل المنارة</button>
-    <button class="btn hidden" id="btnBeaconOff">إيقاف المنارة</button>
-  </div>
-  <div id="idCard" class="idcard"></div>
-</section>
+<main id="page-shield" class="page">
+  <section class="card">
+    <h2>منارة وبطاقة هوية</h2>
+    <div class="row">
+      <button class="btn" id="btnBeacon">تشغيل المنارة</button>
+      <button class="btn hidden" id="btnBeaconOff">إيقاف المنارة</button>
+    </div>
+    <div id="idCard" class="idcard"></div>
+    <p class="dim">المنارة: صوت إنذار ووميض شاشة يدلّ المنقذين عليك في الظلام. وبطاقة الهوية تحمل اسمك وآخر موقع معروف لمن يجد هاتفك.</p>
+  </section>
+</main>
 
-<section class="card">
-  <h2>الإعداد</h2>
-  <label>اسمك<input id="inName" class="inp" placeholder="الاسم الكامل"></label>
-  <label>أرقام الاستغاثة (حتى ٣، واحد في كل سطر)<textarea id="inNumbers" class="inp" rows="3" placeholder="+968 …"></textarea></label>
-  <label>نص الرسالة — المتغيرات: {name} {loc} {bat} {time}
-    <textarea id="inMsg" class="inp" rows="3"></textarea></label>
-  <label>نص رسالة الطمأنينة<textarea id="inOkMsg" class="inp" rows="2"></textarea></label>
-  <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
-  <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
-</section>
+<main id="page-setup" class="page">
+  <section class="card">
+    <h2>الإعداد</h2>
+    <label>اسمك<input id="inName" class="inp" placeholder="الاسم الكامل"></label>
+    <label>أرقام الاستغاثة (حتى ٣، واحد في كل سطر)<textarea id="inNumbers" class="inp" rows="3" placeholder="+968 …"></textarea></label>
+    <label>نص الرسالة — المتغيرات: {name} {loc} {bat} {time}
+      <textarea id="inMsg" class="inp" rows="3"></textarea></label>
+    <label>نص رسالة الطمأنينة<textarea id="inOkMsg" class="inp" rows="2"></textarea></label>
+    <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
+    <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
+  </section>
+  <footer class="dim center">الحارس 1.2 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+</main>
 
-<footer class="dim center">الحارس 1.1 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+<nav id="tabbar">
+  <button class="tab active" data-page="home">
+    <svg viewBox="0 0 24 24"><path d="M12 3 L22 11 H19 V21 H14 V15 H10 V21 H5 V11 H2 Z"/></svg>
+    <span>الرئيسية</span>
+  </button>
+  <button class="tab" data-page="places">
+    <svg viewBox="0 0 24 24"><path d="M12 2 C8 2 5 5 5 9 C5 14 12 22 12 22 C12 22 19 14 19 9 C19 5 16 2 12 2 Z M12 12.2 A3.2 3.2 0 1 1 12 5.8 A3.2 3.2 0 1 1 12 12.2 Z"/></svg>
+    <span>الأماكن</span>
+  </button>
+  <button class="tab" data-page="shield">
+    <svg viewBox="0 0 24 24"><path d="M12 2 L20 5 V11 C20 17 16.5 20.4 12 22 C7.5 20.4 4 17 4 11 V5 Z"/></svg>
+    <span>المنارة</span>
+  </button>
+  <button class="tab" data-page="setup">
+    <svg viewBox="0 0 24 24"><path d="M12 8.5 A3.5 3.5 0 1 1 12 15.5 A3.5 3.5 0 1 1 12 8.5 Z M21 13.6 L21 10.4 L17.8 9.9 A7.4 7.4 0 0 0 16.9 8.6 L18.6 5.9 L16.4 3.7 L13.7 5.4 A7.4 7.4 0 0 0 12.3 4.9 L11.9 2 L8.7 2 L8.3 4.9 A7.4 7.4 0 0 0 6.9 5.5 L4.2 3.8 L2 6 L3.7 8.7 A7.4 7.4 0 0 0 3.2 10.1 L0.5 10.5 L0.5 13.7 L3.2 14.1 A7.4 7.4 0 0 0 4.1 15.4 L2.4 18.1 L4.6 20.3 L7.3 18.6 A7.4 7.4 0 0 0 8.7 19.1 L9.1 22 L12.3 22 L12.7 19.1 A7.4 7.4 0 0 0 14.1 18.5 L16.8 20.2 L19 18 L17.3 15.3 A7.4 7.4 0 0 0 17.8 14.1 Z" transform="translate(1.5,0) scale(0.94)"/></svg>
+    <span>الإعداد</span>
+  </button>
+</nav>
+
 <script src="art.js"></script>
 <script src="app.js"></script>
 </body>
