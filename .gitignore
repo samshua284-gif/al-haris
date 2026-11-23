@@ -1,0 +1,4 @@
+build/
+*.apk
+android/*.keystore
+android/keystore-password.txt

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>الحارس</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header style="display:flex;align-items:center;gap:12px;padding:6px 4px">
+  <div style="font-size:34px">🛡️</div>
+  <div><h1>الحارس</h1><div class="sub">سلامة صحراوية — يعمل بلا إنترنت</div></div>
+</header>
+
+<div class="card" id="sceneCard">
+  <canvas id="scene"></canvas>
+  <div class="row" style="margin-top:8px;justify-content:space-between;align-items:center">
+    <span class="mut" id="sceneNote">قافلتك تمشي…</span>
+    <button id="btnMotion">إيقاف الحركة</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>عداد قوة إشارة</h2>
+  <div class="row">
+    <div class="gauge"><div class="net">4G</div><div class="bars" id="bars4"><i></i><i></i><i></i><i></i></div><div class="dbm" id="dbm4">—</div><div class="word" id="word4">…</div></div>
+    <div class="gauge"><div class="net">2G</div><div class="bars" id="bars2"><i></i><i></i><i></i><i></i></div><div class="dbm" id="dbm2">—</div><div class="word" id="word2">…</div></div>
+  </div>
+  <div class="mut" id="carrierLine" style="margin-top:8px">…</div>
+  <div class="row" style="margin-top:8px">
+    <button id="btn2g" style="flex:1">فتح إعدادات الشبكة (فرض 2G)</button>
+    <button id="btnWhisper" style="flex:1">سجّل لمعة هنا</button>
+  </div>
+</div>
+
+<button id="btnSos">استغاثة SOS</button>
+<div class="warn hidden" id="sosWarn" style="margin-top:6px">أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل.</div>
+
+<div class="card hidden" id="sosPanel">
+  <div id="sosStatus">الاستغاثة مُسلَّحة — أراقب الإشارة</div>
+  <div class="mut" id="sosDetail" style="text-align:center;margin-top:6px"></div>
+  <div id="idCard"><div class="mut" style="color:#555">إن وجدتَني فاقدًا للوعي — أنا</div><div class="nm" id="idName">—</div><div id="idLoc" style="font-size:14px"></div></div>
+  <button id="btnBeacon">تشغيل المنارة (صوت + وميض)</button>
+  <button id="btnCancel"><span id="cancelProg"></span><span style="position:relative">إلغاء الاستغاثة — اضغط مطوّلًا</span></button>
+</div>
+
+<div class="card">
+  <h2>سهم اتجاه العودة</h2>
+  <div id="arrowBox"><div id="arrow">➤</div><div id="arrowText" class="mut">ثبّت مكانًا واختره هدفًا</div></div>
+  <div class="row"><button id="btnNearWhisper" style="flex:1">الهدف: أقرب لمعة معروفة</button><button id="btnClearTarget" style="flex:1">الهدف: مكان محفوظ</button></div>
+</div>
+
+<div class="card">
+  <h2>أماكن محفوظة</h2>
+  <div id="placesList"><div class="mut">لا أماكن بعد — التطبيق يبدأ فارغًا، وأنت تثبّت أماكنك بنفسك.</div></div>
+  <input id="placeName" placeholder="اسم المكان (مخيم، بئر، محطة…)">
+  <button id="btnAddPlace" class="gold" style="width:100%">ثبّت مكاني الحالي</button>
+</div>
+
+<div class="card">
+  <h2>خريطة اللمعات</h2>
+  <div class="mut" id="whisperInfo">لا لمعات مسجلة بعد. كل موضع تلمع فيه شبكة يُحفظ هنا بصمت.</div>
+</div>
+
+<div class="card">
+  <h2>حزم الخرائط والأبراج</h2>
+  <div class="mut">تُفتح في المرحلة القادمة: حزم بلدان من بيانات OpenStreetMap وOpenCellID تُحمَّل مرة واحدة ثم تعمل بلا إنترنت أبدًا. الموقع من الأقمار مجاني دائمًا؛ الخريطة بيانات تُحمَّل مرة.</div>
+</div>
+
+<div class="card">
+  <h2>الإعداد — القوس المشدود</h2>
+  <div class="mut">رسالتك تُبنى هنا مرة واحدة وتبقى جاهزة؛ عند الخطر لا يبقى إلا الزرّ.</div>
+  <input id="inName" placeholder="اسمك الكامل">
+  <input id="inRecipients" placeholder="أرقام المستقبلين (حتى 3، بفاصلة) مثال: +96890000000">
+  <label class="mut">نص رسالة الاستغاثة — {name} الاسم، {loc} الموقع، {bat} البطارية، {time} الوقت</label>
+  <textarea id="inTemplate"></textarea>
+  <label class="mut">نص رسالة الطمأنة بعد الإلغاء</label>
+  <textarea id="inSafe"></textarea>
+  <button id="btnSaveSetup" class="gold" style="width:100%">حفظ الإعداد</button>
+  <div class="ok hidden" id="setupOk">حُفظ ✓ قوسك مشدود.</div>
+</div>
+
+<div class="foot">الحارس لا يرسل من العدم أبدًا — ينتظر أول لمعة شبكة فيُطلق رسالتك في أجزاء من الثانية.<br>بلا إنترنت، بلا حسابات، مجاني لكل إنسان في كل بلد.</div>
+<script src="app.js"></script>
+</body>
+</html>
