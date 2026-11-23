@@ -187,7 +187,7 @@ function caravanInit(){
   const SP=CDW+6,GG=90;
   for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
   TRACK=2*(4*SP+GG);
-  for(let j=0;j<30;j++){const p=document.createElement('div');p.className='print';p.style.opacity='0';layer.appendChild(p);const u=document.createElement('div');u.className='puff';u.style.opacity='0';layer.appendChild(u);printPool.push({el:p,puff:u,born:-1e9,fx:0})}
+  for(let j=0;j<30;j++){const u=document.createElement('div');u.className='puff';u.style.opacity='0';layer.appendChild(u);printPool.push({puff:u,born:-1e9,fx:0})}
 }
 function motionWanted(){
   if(!motionUser)return false;
@@ -209,11 +209,11 @@ function caravanLoop(ts){
   const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
   if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
-  const stridePx=24,PHASE=[0,2,1,2];
+  const stridePx=24;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const ph=(SHIFT+i*11)/stridePx;
-    const fr=PHASE[Math.floor(ph*4)%4];
+    const uu=ph-Math.floor(ph);const fr=uu<0.35?0:uu<0.5?2:uu<0.85?1:2;
     const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.3:0;
     d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
@@ -224,12 +224,11 @@ function caravanLoop(ts){
       lastStep[i]=sIdx;
       const pr=printPool[printIdx++%printPool.length];pr.born=ts;
       pr.fx=x+CDW*0.42+(sIdx%2)*4;
-      pr.el.style.transform='translate3d('+pr.fx+'px,0,0) rotate('+((sIdx%2)?-7:7)+'deg)';
     }
   });
   printPool.forEach(pr=>{const age=(ts-pr.born)/1000;
-    if(age<1.2){pr.el.style.opacity=age<1?String((1-age)*0.8):'0';pr.puff.style.opacity=String(Math.max(0,1-age/1.2)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5+7*age)+'px,'+(-3*age)+'px,0) scale('+(1+1.1*age)+')'}
-    else{pr.el.style.opacity='0';pr.puff.style.opacity='0'}
+    if(age<1.2){pr.puff.style.opacity=String(Math.max(0,1-age/1.2)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5+7*age)+'px,'+(-3*age)+'px,0) scale('+(1+1.1*age)+')'}
+    else{pr.puff.style.opacity='0'}
   });
 }
 caravanInit();
