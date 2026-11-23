@@ -177,8 +177,8 @@ function caravanInit(){
   for(let i=0;i<8;i++){
     const d=document.createElement('div');d.className='camel';
     d.style.width=CDW+'px';d.style.height=CH+'px';
-    d.style.backgroundImage='url('+ART.camels+')';
-    d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
+    d.style.backgroundImage='url('+ART.camelsA+')';d._h=0;
+    d.style.backgroundSize=(ART.halfW*k)+'px '+CH+'px';
     d.style.backgroundPosition=(-(i%ART.cells)*CDW)+'px 0px';
     layer.appendChild(d);camelEls.push(d);
     const sh=document.createElement('div');sh.className='cshadow';sh.style.width=Math.round(CDW*1.30)+'px';
@@ -216,7 +216,9 @@ function caravanLoop(ts){
     const uu=ph-Math.floor(ph);const fr=uu<0.22?0:uu<0.35?4:uu<0.53?3:uu<0.66?5:uu<0.88?1:2;
     const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.3:0;
     d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
-    d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
+    const cell=(fr*ART.cells)+(i%ART.cells),half=cell>=12?1:0;
+    if(d._h!==half){d.style.backgroundImage='url('+(half?ART.camelsB:ART.camelsA)+')';d._h=half}
+    d.style.backgroundPosition=(-((cell%12)*CDW))+'px 0px';
     camelShadows[i].style.transform='translate3d('+(x-CDW*0.26)+'px,0,0) rotate(-3deg)';
     const sIdx=Math.floor(ph*2);
     if(lastStep[i]===undefined)lastStep[i]=sIdx;
