@@ -30,7 +30,7 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 @keyframes dashB{from{stroke-dashoffset:-380}to{stroke-dashoffset:0}}
 #sceneWrap.frozen ~ .threads *{animation-play-state:paused!important}
 #sceneBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:46% 50%;filter:brightness(1.05) saturate(1.06)}
-.cshadow{position:absolute;left:0;bottom:5px;height:7px;border-radius:50%;background:rgba(59,32,8,.38);filter:blur(2.5px);will-change:transform}
+.cshadow{position:absolute;left:0;bottom:3px;height:6px;border-radius:50%;background:linear-gradient(90deg,rgba(59,32,8,0),rgba(59,32,8,.28) 40%,rgba(59,32,8,.40) 75%,rgba(59,32,8,.34));filter:blur(2.5px);transform-origin:right center;will-change:transform}
 .puff{position:absolute;left:0;bottom:4px;width:26px;height:15px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(238,206,155,.55),rgba(238,206,155,0) 70%);filter:blur(2px);pointer-events:none;will-change:opacity,transform}
 @keyframes drift{from{transform:scale(1.09) translateX(1.1%)}to{transform:scale(1.09) translateX(-1.1%)}}
 #sceneWrap.frozen #sceneBg{animation-play-state:paused}
