@@ -230,7 +230,7 @@ public class MainActivity extends Activity {
             try {
                 int tiles = 0;
                 for (int z = 7; z <= 13; z++) {
-                    int[] r = tileRange(lat, lng, radiusKm, z);
+                    int[] r = tileRange(lat, lng, radiusForZ(radiusKm, z), z);
                     tiles += (r[1] - r[0] + 1) * (r[3] - r[2] + 1);
                 }
                 JSONObject o = new JSONObject();
@@ -249,7 +249,7 @@ public class MainActivity extends Activity {
                 String[] layers = { "roads", "sat" };
                 int total = 0;
                 for (int z = 7; z <= 13; z++) {
-                    int[] r = tileRange(lat, lng, radiusKm, z);
+                    int[] r = tileRange(lat, lng, radiusForZ(radiusKm, z), z);
                     total += (r[1] - r[0] + 1) * (r[3] - r[2] + 1);
                 }
                 total *= 2;
@@ -260,7 +260,7 @@ public class MainActivity extends Activity {
                     for (String layer : layers) {
                         String ext = layer.equals("sat") ? "jpg" : "png";
                         for (int z = 7; z <= 13 && !packCancel && !aborted; z++) {
-                            int[] r = tileRange(lat, lng, radiusKm, z);
+                            int[] r = tileRange(lat, lng, radiusForZ(radiusKm, z), z);
                             for (int x = r[0]; x <= r[1] && !packCancel && !aborted; x++) {
                                 for (int y = r[2]; y <= r[3]; y++) {
                                     if (packCancel) break;
@@ -344,6 +344,12 @@ public class MainActivity extends Activity {
     private void pushJs(final String js) {
         if (web == null) return;
         web.post(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) {} });
+    }
+
+    /* Smart taper for the 500 km pack: full detail near the centre, coarser far away. */
+    static double radiusForZ(int radiusKm, int z) {
+        if (radiusKm >= 500) return z <= 10 ? 500 : (z <= 12 ? 150 : 50);
+        return radiusKm;
     }
 
     static int[] tileRange(double lat, double lng, double rKm, int z) {
