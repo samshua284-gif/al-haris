@@ -172,7 +172,7 @@ const wrap=$('sceneWrap'),layer=$('caravan');
 let motionUser=true,camelEls=[],camelShadows=[],SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
-  $('sceneBg').src=ART.scene;
+  $('sceneBg').src=ART.scene;$('sceneFg').src=ART.scene;
   const k=CH/ART.cellH;CDW=Math.round(ART.cellW*k);
   for(let i=0;i<8;i++){
     const d=document.createElement('div');d.className='camel';
@@ -213,7 +213,7 @@ function caravanLoop(ts){
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const ph=(SHIFT+i*11)/stridePx;
     const fr=Math.floor(ph*2)%ART.frames;
-    const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.4:0;
+    const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.3:0;
     d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
     camelShadows[i].style.transform='translate3d('+(x+CDW*0.09)+'px,0,0)';
