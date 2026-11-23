@@ -1,0 +1,728 @@
+{
+ "cycle_duration_s": 3.2,
+ "gait": "pacing",
+ "stance_fraction": 0.65,
+ "contact_order": [
+  "LH",
+  "LF",
+  "RH",
+  "RF"
+ ],
+ "frames": [
+  {
+   "percent": 0,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -11,
+      "knee": 19.4,
+      "wrist": 12.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -27.7,
+      "knee": 51.6,
+      "wrist": 36.1
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.145
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": 8.8,
+      "knee": 28.8,
+      "wrist": 12.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": 13.3,
+      "knee": 29.7,
+      "wrist": 13.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.035,
+    "sway_deg": 0,
+    "neck_deg": -1.4,
+    "head_deg": 1.8
+   }
+  },
+  {
+   "percent": 8.33,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -7.8,
+      "knee": 24.9,
+      "wrist": 16.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -11.9,
+      "knee": 18.2,
+      "wrist": 11.6
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -0.8,
+      "knee": 23.9,
+      "wrist": 8.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": 9.2,
+      "knee": 26.5,
+      "wrist": 10.7
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.048,
+    "sway_deg": 2.2,
+    "neck_deg": -5.3,
+    "head_deg": 3.5
+   }
+  },
+  {
+   "percent": 16.67,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -2.9,
+      "knee": 29.6,
+      "wrist": 18.4
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -8.3,
+      "knee": 23.3,
+      "wrist": 14.6
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -11.5,
+      "knee": 32.7,
+      "wrist": 22.1
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.033
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -1.3,
+      "knee": 21.9,
+      "wrist": 7.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.073,
+    "sway_deg": 3.9,
+    "neck_deg": -3.9,
+    "head_deg": 1.7
+   }
+  },
+  {
+   "percent": 25,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": 3.6,
+      "knee": 32.6,
+      "wrist": 19
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -2.9,
+      "knee": 27.5,
+      "wrist": 16.5
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -28.9,
+      "knee": 61.4,
+      "wrist": 44.8
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.172
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -13.4,
+      "knee": 31.5,
+      "wrist": 20.7
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.039
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.085,
+    "sway_deg": 4.5,
+    "neck_deg": 1.4,
+    "head_deg": -1.8
+   }
+  },
+  {
+   "percent": 33.33,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": 9.7,
+      "knee": 33.5,
+      "wrist": 18.1
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": 4.2,
+      "knee": 30.2,
+      "wrist": 17
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -34.9,
+      "knee": 71.2,
+      "wrist": 52.5
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.219
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -32,
+      "knee": 57.6,
+      "wrist": 40.6
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.176
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.073,
+    "sway_deg": 3.9,
+    "neck_deg": 5.3,
+    "head_deg": -3.5
+   }
+  },
+  {
+   "percent": 41.67,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": 12.2,
+      "knee": 32.1,
+      "wrist": 15.7
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": 10.8,
+      "knee": 31,
+      "wrist": 16.1
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -26.1,
+      "knee": 56.8,
+      "wrist": 41.2
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.15
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -37.8,
+      "knee": 65.8,
+      "wrist": 46.8
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.219
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.048,
+    "sway_deg": 2.2,
+    "neck_deg": 3.9,
+    "head_deg": -1.7
+   }
+  },
+  {
+   "percent": 50,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": 8.8,
+      "knee": 28.8,
+      "wrist": 12.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": 13.3,
+      "knee": 29.7,
+      "wrist": 13.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -11,
+      "knee": 19.4,
+      "wrist": 12.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -27.7,
+      "knee": 51.6,
+      "wrist": 36.1
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.145
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.035,
+    "sway_deg": 0,
+    "neck_deg": -1.4,
+    "head_deg": 1.8
+   }
+  },
+  {
+   "percent": 58.33,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -0.8,
+      "knee": 23.9,
+      "wrist": 8.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": 9.2,
+      "knee": 26.5,
+      "wrist": 10.7
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -7.8,
+      "knee": 24.9,
+      "wrist": 16.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -11.9,
+      "knee": 18.2,
+      "wrist": 11.6
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.048,
+    "sway_deg": -2.3,
+    "neck_deg": -5.3,
+    "head_deg": 3.5
+   }
+  },
+  {
+   "percent": 66.67,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -11.5,
+      "knee": 32.7,
+      "wrist": 22.1
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.033
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -1.3,
+      "knee": 21.9,
+      "wrist": 7.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": -2.9,
+      "knee": 29.6,
+      "wrist": 18.4
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -8.3,
+      "knee": 23.3,
+      "wrist": 14.6
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.072,
+    "sway_deg": -3.9,
+    "neck_deg": -3.9,
+    "head_deg": 1.7
+   }
+  },
+  {
+   "percent": 75,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -28.9,
+      "knee": 61.4,
+      "wrist": 44.8
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.172
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -13.4,
+      "knee": 31.5,
+      "wrist": 20.7
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.039
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": 3.6,
+      "knee": 32.6,
+      "wrist": 19
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": -2.9,
+      "knee": 27.5,
+      "wrist": 16.5
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.085,
+    "sway_deg": -4.5,
+    "neck_deg": 1.4,
+    "head_deg": -1.8
+   }
+  },
+  {
+   "percent": 83.33,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -34.9,
+      "knee": 71.2,
+      "wrist": 52.5
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.219
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -32,
+      "knee": 57.6,
+      "wrist": 40.6
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.176
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": 9.7,
+      "knee": 33.5,
+      "wrist": 18.1
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": 4.2,
+      "knee": 30.2,
+      "wrist": 17
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.073,
+    "sway_deg": -3.9,
+    "neck_deg": 5.3,
+    "head_deg": -3.5
+   }
+  },
+  {
+   "percent": 91.67,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -26.1,
+      "knee": 56.8,
+      "wrist": 41.2
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.15
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -37.8,
+      "knee": 65.8,
+      "wrist": 46.8
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.219
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": 12.2,
+      "knee": 32.1,
+      "wrist": 15.7
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": 10.8,
+      "knee": 31,
+      "wrist": 16.1
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.048,
+    "sway_deg": -2.3,
+    "neck_deg": 3.9,
+    "head_deg": -1.7
+   }
+  },
+  {
+   "percent": 100,
+   "legs": {
+    "LH": {
+     "joints_deg": {
+      "shoulder_hip": -11,
+      "knee": 19.4,
+      "wrist": 12.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "LF": {
+     "joints_deg": {
+      "shoulder_hip": -27.7,
+      "knee": 51.6,
+      "wrist": 36.1
+     },
+     "foot": {
+      "on_ground": false,
+      "height_m": 0.145
+     }
+    },
+    "RH": {
+     "joints_deg": {
+      "shoulder_hip": 8.8,
+      "knee": 28.8,
+      "wrist": 12.2
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    },
+    "RF": {
+     "joints_deg": {
+      "shoulder_hip": 13.3,
+      "knee": 29.7,
+      "wrist": 13.9
+     },
+     "foot": {
+      "on_ground": true,
+      "height_m": 0
+     }
+    }
+   },
+   "body": {
+    "vertical_m": 0.035,
+    "sway_deg": 0,
+    "neck_deg": -1.4,
+    "head_deg": 1.8
+   }
+  }
+ ]
+}

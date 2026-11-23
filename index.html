@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>الحارس</title>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="leaflet.css">
+<link rel="stylesheet" href="maplibre-gl.css">
 </head>
 <body>
 
@@ -59,13 +59,17 @@
       <h2>عدّاد قوة إشارة</h2>
     </div>
     <div class="gauges">
-      <div class="gauge"><div class="gname">4G</div><div class="bars" id="bars4"></div><div class="dbm" id="dbm4">—</div><div class="glabel" id="lab4">…</div></div>
+      <div class="gauge"><div class="gname" id="gnameModern">4G</div><div class="bars" id="bars4"></div><div class="dbm" id="dbm4">—</div><div class="glabel" id="lab4">…</div></div>
       <div class="gauge"><div class="gname">2G</div><div class="bars" id="bars2"></div><div class="dbm" id="dbm2">—</div><div class="glabel" id="lab2">…</div></div>
     </div>
+    <div class="row"><button class="btn grow" id="btnRefreshSignal">🔄 تحديث القياس الآن</button></div>
     <p class="dim" id="netState">…</p>
     <div class="row">
       <button class="btn" id="btnNetSettings">فتح إعدادات الشبكة (فرض 2G)</button>
       <button class="btn" id="btnLogFlicker">سجّل لمعة هنا</button>
+    </div>
+    <div class="row">
+      <button class="btn gold grow" id="btnHunt">🎯 وضع صيد الإشارة — امشِ واتبع القوة</button>
     </div>
   </section>
 
@@ -86,6 +90,7 @@
       <div id="homeArrowGlyph">➤</div>
       <p id="homeArrowText" class="grow">—</p>
     </div>
+    <p class="dim">اضغط السهم لعرض الهدف على الخريطة، واتبع إشارة السهم إلى مكانك.</p>
   </section>
 
   <section class="card">
@@ -105,17 +110,18 @@
 
   <section class="card" id="sosPanel">
     <div id="sosIdle">
-      <p>زرّ الاستغاثة يبني رسالتك الآن ويُبقي موقعك دافئًا — لا انتظار عند الخطر.</p>
+      <p>زرّ الاستغاثة يفتح تطبيق رسائلك ورسالتك مبنية كاملة بموقعك الحي — تضغط «إرسال» هناك مرة واحدة. لا يُرسَل شيء تلقائيًا من هنا.</p>
       <p class="dim" id="sosReadyState">…</p>
     </div>
     <div id="sosArmed" class="hidden">
-      <p class="armedText">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
+      <p class="armedText" id="sosArmHead">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
       <p class="dim" id="sosArmInfo"></p>
+      <button class="btn gold" id="btnComposer">📩 افتحها في تطبيق الرسائل — إرسال مضمون من هاتفك</button>
       <button class="btn danger" id="btnCancelSOS">إلغاء الاستغاثة (اضغط مطوّلًا)</button>
       <p class="dim">الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.</p>
     </div>
     <div id="sosSent" class="hidden">
-      <p class="sentText">✅ وصلت رسالة الاستغاثة إلى المستقبِل.</p>
+      <p class="sentText">✅ تأكّد وصول رسالة الاستغاثة إلى هاتف المستقبِل (تقرير تسليم من الشبكة).</p>
       <button class="btn danger" id="btnCancelAfter">أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)</button>
       <p class="dim">ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.</p>
     </div>
@@ -126,19 +132,20 @@
   <section class="card">
     <h2>أماكن محفوظة</h2>
     <div id="placesList"></div>
+    <p class="dim">اضغط أي مكان محفوظ لعرضه على الخريطة.</p>
     <div class="row">
       <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)">
       <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="arrowCard">
     <h2>سهم اتجاه العودة</h2>
     <div class="row">
       <select id="arrowTarget" class="inp grow"></select>
       <div id="arrowBox"><div id="arrowGlyph">➤</div><div id="arrowDist">—</div></div>
     </div>
-    <p class="dim">اختر مكانًا محفوظًا فيشير السهم إليه من موضعك الحالي.</p>
+    <p class="dim">اختر مكانًا محفوظًا فيشير السهم إليه من موضعك الحالي — واضغط السهم نفسه لعرض الهدف على الخريطة.</p>
   </section>
 
   <section class="card">
@@ -156,7 +163,7 @@
 </main>
 
 <main id="page-map" class="page">
-  <section class="card mapcard">
+  <section class="card mapcard" id="mapCard">
     <div class="cardHead">
       <svg class="ic icGold" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round"/></svg>
       <h2>الخريطة — تعمل بلا إنترنت</h2>
@@ -167,9 +174,12 @@
       <button class="btn small" id="btnLayerSat">أقمار</button>
       <span class="grow"></span>
       <button class="btn small" id="btnMyLoc">◎ موقعي</button>
+      <button class="btn small" id="btnPinHere">📌 ثبّت مكاني</button>
+      <button class="btn small" id="btnFullMap">⛶ ملء الشاشة</button>
     </div>
-    <p class="dim">تظهر فقط المناطق التي نزّلتها. النقطة الزرقاء موقعك، والدبابيس أماكنك المحفوظة. © Esri · © OpenStreetMap contributors</p>
+    <p class="dim">تظهر فقط المناطق التي نزّلتها. النقطة الزرقاء موقعك، والدبابيس أماكنك المحفوظة. الأسماء بالعربية من بيانات © OpenStreetMap contributors عبر OpenFreeMap · صور الأقمار © Esri</p>
     <p class="dim" id="locStatus"></p>
+    <p class="dim" id="mapStats"></p>
     <button class="btn small hidden" id="btnLocSettings">افتح إعدادات الموقع في الهاتف</button>
   </section>
 
@@ -186,17 +196,21 @@
       <button class="btn small packR" data-r="100">١٠٠ كم</button>
       <button class="btn small packR" data-r="500">٥٠٠ كم</button>
     </div>
-    <p class="dim">حزمة ٥٠٠ كم «ذكية»: تفاصيل كاملة (زوم ١٣) في أول ٥٠ كم حول المركز، ومتوسطة حتى ١٥٠ كم، وعامة حتى ٥٠٠ كم — فتبقى بحجم حزمة ١٠٠ كم تقريبًا بدل ٢٫٢ غيغا.</p>
+    <p class="dim">حزمة ٥٠٠ كم «ذكية»: أدقّ التفاصيل قرب المركز، وتقلّ تدريجيًا كلما ابتعدت — فتبقى بحجم معقول بدل أكثر من غيغا.</p>
     <p class="dim" id="packEst">…</p>
     <div id="packProgWrap" class="hidden">
       <div class="prog"><div id="packProgBar"></div></div>
       <p class="dim" id="packProgTxt"></p>
       <div class="row">
+        <button class="btn gold grow" id="btnBasePack">🇴🇲 نزّل خريطة أساس: كل عُمان (للزوم البعيد)</button>
+      </div>
+      <p class="dim" id="baseInfo"></p>
+      <div class="row">
         <button class="btn danger small" id="btnStopPack">إيقاف التنزيل (يبقى ما نزل)</button>
         <button class="btn small" id="btnDiscardPack" style="background:#3a2a10;border-color:#8a6a1d;color:#ffd977">إلغاء التنزيل (حذف ما نزل)</button>
       </div>
     </div>
-    <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق + أقمار، زوم ٧–١٣)</button>
+    <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق متجهية بأسماء عربية + أقمار)</button>
   </section>
 
   <section class="card">
@@ -232,9 +246,28 @@
     <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
-  <footer class="dim center">الحارس 1.27 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+
+  <footer class="dim center">الحارس 1.64 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
+<main id="page-hunt" class="page">
+  <section class="card huntBox">
+    <div class="row spread"><h2>🎯 صيد الإشارة</h2><button class="btn small" id="btnHuntClose">✕ إنهاء الصيد</button></div>
+    <div class="row" id="huntNetRow">
+      <button class="btn grow sel" id="huntNet2">2G — شبكة الاستغاثة</button>
+      <button class="btn grow" id="huntNet4">4G</button>
+    </div>
+    <div id="huntDbm">—</div>
+    <div id="huntTrend">ابدأ المشي…</div>
+    <p class="dim">الصيد يحتاج حركة: امشِ ١٠–٢٠ مترًا في اتجاه، وراقب المؤشّر، ثم جرّب اتجاهًا آخر وقارن.</p>
+    <p id="huntBest">أفضل نقطة في هذا الصيد: —</p>
+    <div class="row">
+      <button class="btn grow" id="btnHuntBestMap" disabled>أرني الأفضل على الخريطة</button>
+      <button class="btn grow" id="btnHuntForce">فتح إعدادات الشبكة</button>
+    </div>
+    <p class="dim">المؤشّر يقارن قوة آخر ثوانٍ بما قبلها على الشبكة المختارة وحدها. يقودك إلى نقطة تعمل فيها الإشارة — لا إلى البرج نفسه. القوة تتذبذب ±٥ dBm طبيعيًا، فاعتمد اتجاه المؤشّر عبر خطوات، لا قراءة واحدة.</p>
+  </section>
+</main>
 <nav id="tabbar">
   <button class="tab active" data-page="home">
     <svg viewBox="0 0 24 24"><path d="M12 3 L22 11 H19 V21 H14 V15 H10 V21 H5 V11 H2 Z"/></svg>
@@ -255,7 +288,8 @@
 </nav>
 
 <script src="art.js"></script>
-<script src="leaflet.js"></script>
+<script src="maplibre-gl.js"></script>
+<script src="style.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
