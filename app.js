@@ -163,7 +163,7 @@ function caravanInit(){
     d.style.backgroundPosition=(-(i%ART.cells)*CDW)+'px 0px';
     layer.appendChild(d);camelEls.push(d);
   }
-  const SP=CDW+8,GG=150;
+  const SP=CDW+6,GG=90;
   for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
   TRACK=2*(4*SP+GG);
 }
@@ -184,14 +184,16 @@ $('btnAnim').onclick=()=>{motionUser=!motionUser;updateMotion()};
 function caravanLoop(ts){
   requestAnimationFrame(caravanLoop);
   if(!camelEls.length)return;
-  const dt=Math.min(50,ts-(lastTs||ts));lastTs=ts;
+  const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
-  if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
+  if(on&&dt>0)SHIFT=(SHIFT+13*dt/1000)%TRACK;
+  const fr=motionWanted()?(Math.floor(ts/210)%ART.frames):0;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const bob=motionWanted()?Math.sin(ts/380+i*1.3)*0.8:0;
     const tilt=motionWanted()?Math.sin(ts/900+i*2.1)*0.6:0;
     d.style.transform='translate3d('+x+'px,'+bob+'px,0) rotate('+tilt+'deg)';
+    d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
   });
 }
 caravanInit();
