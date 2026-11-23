@@ -169,6 +169,8 @@
       <button class="btn small" id="btnMyLoc">◎ موقعي</button>
     </div>
     <p class="dim">تظهر فقط المناطق التي نزّلتها. النقطة الزرقاء موقعك، والدبابيس أماكنك المحفوظة. © OpenStreetMap contributors · © Esri, Maxar, Earthstar Geographics</p>
+    <p class="dim" id="locStatus"></p>
+    <button class="btn small hidden" id="btnLocSettings">افتح إعدادات الموقع في الهاتف</button>
   </section>
 
   <section class="card" id="packCard">
@@ -189,7 +191,10 @@
     <div id="packProgWrap" class="hidden">
       <div class="prog"><div id="packProgBar"></div></div>
       <p class="dim" id="packProgTxt"></p>
-      <button class="btn danger small" id="btnCancelPack">إيقاف التنزيل</button>
+      <div class="row">
+        <button class="btn danger small" id="btnStopPack">إيقاف التنزيل (يبقى ما نزل)</button>
+        <button class="btn small" id="btnDiscardPack" style="background:#3a2a10;border-color:#8a6a1d;color:#ffd977">إلغاء التنزيل (حذف ما نزل)</button>
+      </div>
     </div>
     <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق + أقمار، زوم ٧–١٣)</button>
   </section>
@@ -227,7 +232,7 @@
     <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
-  <footer class="dim center">الحارس 1.24 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.25 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
 <nav id="tabbar">

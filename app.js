@@ -121,7 +121,7 @@ function refresh(){
   $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'');
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();
 }
-window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser();if(curPage==='map')refreshPackEst()};
+window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser();renderLocStatus();if(curPage==='map')refreshPackEst()};
 
 /* ---------- actions ---------- */
 $('btnAddPlace').onclick=()=>{
@@ -253,7 +253,7 @@ function initMap(){
     mapObj.on('moveend',()=>{if($('packCenter').value==='center')refreshPackEst()});
   }
   setTimeout(()=>{mapObj.invalidateSize();renderMapPlaces();renderMapUser()},80);
-  fillPackCenters();refreshPackEst();renderPacks();
+  fillPackCenters();refreshPackEst();renderPacks();renderLocStatus();updatePackButtons();
 }
 function setMapLayer(sat){
   if(!mapObj)return;
@@ -317,23 +317,33 @@ function renderPacks(){
     del.onclick=()=>{GN.deletePack(i);renderPacks()};
     row.appendChild(del);list.appendChild(row);
   });
+  partialTiles=data.partialTiles||0;updatePackButtons();
   if(!(data.packs||[]).length)list.innerHTML='<p class="dim">لا حزم بعد — نزّل أول حزمة من الأعلى.</p>';
   $('tilesSize').textContent='حجم الخرائط على هاتفك الآن: '+(data.tilesMB||0)+' ميغا';
   const hs=$('packStatus');
   if(hs)hs.textContent=(data.tilesMB>0)?('على هاتفك خرائط بحجم '+data.tilesMB+' ميغا — تعمل بلا إنترنت.'):'لا خرائط منزّلة بعد.';
+}
+let partialTiles=0;
+function updatePackButtons(){
+  $('btnStopPack').style.display=packDownloading?'':'none';
+  $('btnDiscardPack').style.display=(packDownloading||partialTiles>0)?'':'none';
 }
 window.__onPackProgress=p=>{
   $('packProgWrap').classList.remove('hidden');
   const pct=p.total?Math.round(p.done/p.total*100):0;
   $('packProgBar').style.width=pct+'%';
   $('packProgTxt').textContent='جارٍ التنزيل… '+p.done+' / '+p.total+' بلاطة ('+pct+'٪) — '+(p.layer==='sat'?'طبقة الأقمار':'طبقة الطرق');
+  updatePackButtons();
 };
 window.__onPackDone=r=>{
   packDownloading=false;
   $('btnDownloadPack').disabled=false;
-  if(r.ok){
+  if(r.discarded){
+    $('packProgTxt').textContent='أُلغي التنزيل وحُذفت بلاطات هذه الجلسة.';
+    $('packProgBar').style.width='0%';partialTiles=0;
+  }else if(r.ok){
     $('packProgTxt').textContent='✅ اكتمل التنزيل: '+r.tiles+' بلاطة · '+r.mb+' ميغا. الخريطة جاهزة بلا إنترنت.';
-    $('packProgBar').style.width='100%';
+    $('packProgBar').style.width='100%';partialTiles=0;
   }else if(r.cancelled){
     $('packProgTxt').textContent='أُوقف التنزيل — ما نزل يبقى محفوظًا ويُستكمل لاحقًا.';
   }else{
@@ -366,7 +376,23 @@ $('btnDownloadPack').onclick=()=>{
   $('packProgTxt').textContent='بدأ التنزيل حول «'+c.name+'»…';
   GN.downloadPack(c.name+' ('+packRadius+' كم)',c.lat,c.lng,packRadius);
 };
-$('btnCancelPack').onclick=()=>{if(GN&&GN.cancelPack)GN.cancelPack()};
+$('btnStopPack').onclick=()=>{if(GN&&GN.cancelPack)GN.cancelPack()};
+$('btnDiscardPack').onclick=()=>{
+  if(!confirm('إلغاء التنزيل وحذف البلاطات التي نزلت في هذه الجلسة؟'))return;
+  if(GN&&GN.cancelPackDiscard)GN.cancelPackDiscard();
+  if(!packDownloading){partialTiles=0;updatePackButtons();$('packProgTxt').textContent='أُلغي التنزيل وحُذفت بلاطات هذه الجلسة.';$('packProgBar').style.width='0%';setTimeout(renderPacks,400)}
+};
+function renderLocStatus(){
+  const el=$('locStatus');if(!el)return;
+  if(myLoc){
+    el.textContent='📍 موقعك معروف الآن'+(myLoc.acc?' — دقة ±'+Math.round(myLoc.acc)+'م':'');
+    $('btnLocSettings').classList.add('hidden');
+  }else{
+    el.textContent='📍 موقعك غير معروف بعد — التطبيق لا يستطيع تشغيل GPS بنفسه؛ فعّله من إعدادات الهاتف وامنح التطبيق إذن الموقع.';
+    $('btnLocSettings').classList.remove('hidden');
+  }
+}
+$('btnLocSettings').onclick=()=>{if(GN&&GN.openLocationSettings)GN.openLocationSettings()};
 $('btnClearTiles').onclick=()=>{
   if(!confirm('مسح كل الخرائط المنزّلة وسجلات الحزم؟'))return;
   GN.clearTiles();renderPacks();

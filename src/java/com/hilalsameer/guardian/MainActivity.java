@@ -254,7 +254,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void downloadPack(final String name, final double lat,
                                                        final double lng, final int radiusKm) {
             if (packThread != null && packThread.isAlive()) return;
-            packCancel = false;
+            packCancel = false; packDiscard = false;
+            synchronized (sessionFiles) { sessionFiles.clear(); }
             packThread = new Thread(() -> {
                 String[] layers = { "roads", "sat" };
                 int total = 0;
@@ -281,7 +282,8 @@ public class MainActivity extends Activity {
                                             ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x
                                             : "https://tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
                                     long got = fetchTile(url, f);
-                                    if (got > 0) { bytes += got; consecFails = 0; }
+                                    if (got > 0) { bytes += got; consecFails = 0;
+                                        synchronized (sessionFiles) { sessionFiles.add(f); } }
                                     else { fails++; if (++consecFails >= 30) { aborted = true; break; } }
                                     done++;
                                     if (done % 10 == 0) {
@@ -296,10 +298,17 @@ public class MainActivity extends Activity {
                         }
                     }
                 } catch (Exception ignored) {}
+                if (packDiscard) {
+                    synchronized (sessionFiles) {
+                        for (File f : sessionFiles) f.delete();
+                        sessionFiles.clear();
+                    }
+                }
                 JSONObject o = new JSONObject();
                 try {
                     o.put("ok", !packCancel && !aborted);
                     o.put("cancelled", packCancel);
+                    o.put("discarded", packDiscard);
                     o.put("tiles", done);
                     o.put("fails", fails);
                     if (!packCancel && !aborted) {
@@ -321,12 +330,31 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void cancelPack() { packCancel = true; }
 
+        @JavascriptInterface public void cancelPackDiscard() {
+            if (packThread != null && packThread.isAlive()) {
+                packDiscard = true; packCancel = true;
+            } else {
+                synchronized (sessionFiles) {
+                    for (File f : sessionFiles) f.delete();
+                    sessionFiles.clear();
+                }
+            }
+        }
+
+        @JavascriptInterface public void openLocationSettings() {
+            try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); }
+            catch (Exception e) { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
+        }
+
         @JavascriptInterface public String listPacks() {
             try {
                 JSONObject o = new JSONObject();
                 android.content.SharedPreferences sp = G.p(MainActivity.this);
                 o.put("packs", new JSONArray(sp.getString("packs", "[]")));
                 o.put("tilesMB", Math.round(dirSize(new File(getFilesDir(), "tiles")) / 104857.6) / 10.0);
+                int partial = 0;
+                synchronized (sessionFiles) { for (File f : sessionFiles) if (f.exists()) partial++; }
+                o.put("partialTiles", partial);
                 return o.toString();
             } catch (Exception e) { return "{}"; }
         }
@@ -349,7 +377,9 @@ public class MainActivity extends Activity {
 
     /* ---------- map helpers ---------- */
     private volatile boolean packCancel = false;
+    private volatile boolean packDiscard = false;
     private Thread packThread = null;
+    private final java.util.List<File> sessionFiles = new java.util.ArrayList<>();
 
     private void pushJs(final String js) {
         if (web == null) return;
