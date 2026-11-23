@@ -208,8 +208,8 @@ function caravanLoop(ts){
   if(!camelEls.length)return;
   const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
-  if(on&&dt>0)SHIFT=(SHIFT+13*dt/1000)%TRACK;
-  const stridePx=30,PHASE=[0,2,1,2];
+  if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
+  const stridePx=24,PHASE=[0,2,1,2];
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const ph=(SHIFT+i*11)/stridePx;
