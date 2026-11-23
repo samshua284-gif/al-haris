@@ -206,11 +206,14 @@ function caravanLoop(ts){
   const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
   if(on&&dt>0)SHIFT=(SHIFT+13*dt/1000)%TRACK;
-  const fr=motionWanted()?(Math.floor(ts/250)%ART.frames):0;
+  const stridePx=30;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
-    const bob=motionWanted()?(fr?-0.7:0.7):0;
-    d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
+    const ph=(SHIFT+i*11)/stridePx;
+    const fr=Math.floor(ph*2)%ART.frames;
+    const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.8:0;
+    const sway=motionWanted()?Math.sin(ph*2*Math.PI)*1.1:0;
+    d.style.transform='translate3d('+x+'px,'+bob+'px,0) rotate('+sway+'deg)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
   });
 }
