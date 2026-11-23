@@ -23,7 +23,26 @@ function brg(a,b,c,d){const t=Math.PI/180;const y=Math.sin((d-b)*t)*Math.cos(c*t
 function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' كم':Math.round(m)+' م'}
 
 /* ---------- places & arrow ---------- */
+function renderHome(){
+  const pl=state.places||[];const hp=$('homePlaces');
+  if(hp){
+    if(!pl.length)hp.innerHTML='<p class="dim">لا أماكن بعد — ثبّت أماكنك من تبويب «الأماكن» فتظهر هنا.</p>';
+    else{hp.innerHTML='';pl.slice(0,3).forEach(p=>{const d=document.createElement('div');d.className='placeRow';const dist=myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'';d.innerHTML='<span>📍 <b>'+p.name+'</b> <span class="dim">'+dist+'</span></span>';hp.appendChild(d)})}
+  }
+  renderHomeArrow();
+}
+function renderHomeArrow(){
+  const g=$('homeArrowGlyph'),tEl=$('homeArrowText');if(!g||!tEl)return;
+  const pl=state.places||[];
+  if(!pl.length){g.style.opacity=.3;tEl.textContent='أضف مكانًا محفوظًا أولًا';return}
+  if(!myLoc){g.style.opacity=.3;tEl.textContent='بانتظار موقعك…';return}
+  let best=pl[0],bd=1e18;pl.forEach(p=>{const d=hav(myLoc.lat,myLoc.lng,p.lat,p.lng);if(d<bd){bd=d;best=p}});
+  const b=brg(myLoc.lat,myLoc.lng,best.lat,best.lng);const rel=heading==null?b:b-heading;
+  g.style.opacity=1;g.style.transform='rotate('+(rel-90)+'deg)';
+  tEl.textContent='العودة إلى: '+best.name+' • '+fmtDist(bd);
+}
 function renderPlaces(){
+  renderHome();
   const list=$('placesList');const pl=state.places||[];
   const sel=$('arrowTarget');const cur=sel.value;
   sel.innerHTML='<option value="">— اختر هدف العودة —</option>';
@@ -61,7 +80,7 @@ function renderArrow(){
   dEl.textContent=t.label+' • '+fmtDist(d);
 }
 $('arrowTarget').addEventListener('change',renderArrow);
-window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow()}});
+window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow()}});
 
 /* ---------- SOS panels ---------- */
 function renderSos(){
@@ -100,7 +119,7 @@ function refresh(){
   }
   gauge('lte',sig.lte);gauge('gsm',sig.gsm);
   $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'');
-  renderSos();renderFlickers();renderPlaces();renderArrow();updateMotion();
+  renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();
 }
 window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces()};
 
@@ -187,12 +206,11 @@ function caravanLoop(ts){
   const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
   if(on&&dt>0)SHIFT=(SHIFT+13*dt/1000)%TRACK;
-  const fr=motionWanted()?(Math.floor(ts/210)%ART.frames):0;
+  const fr=motionWanted()?(Math.floor(ts/250)%ART.frames):0;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
-    const bob=motionWanted()?Math.sin(ts/380+i*1.3)*0.8:0;
-    const tilt=motionWanted()?Math.sin(ts/900+i*2.1)*0.6:0;
-    d.style.transform='translate3d('+x+'px,'+bob+'px,0) rotate('+tilt+'deg)';
+    const bob=motionWanted()?(fr?-0.7:0.7):0;
+    d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
   });
 }
