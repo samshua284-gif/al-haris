@@ -228,7 +228,7 @@ function caravanLoop(ts){
     }
   });
   printPool.forEach(pr=>{const age=(ts-pr.born)/1000;
-    if(age<1){pr.el.style.opacity=String((1-age)*0.8);pr.puff.style.opacity=String((1-age)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5)+'px,'+(-3*age)+'px,0) scale('+(1+0.6*age)+')'}
+    if(age<1.2){pr.el.style.opacity=age<1?String((1-age)*0.8):'0';pr.puff.style.opacity=String(Math.max(0,1-age/1.2)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5+7*age)+'px,'+(-3*age)+'px,0) scale('+(1+1.1*age)+')'}
     else{pr.el.style.opacity='0';pr.puff.style.opacity='0'}
   });
 }
