@@ -52,6 +52,8 @@ public class G {
         return out;
     }
     public static boolean armed(Context c) { return p(c).getBoolean("armed", false); }
+    public static boolean salawatOn(Context c) { return p(c).getBoolean("salawat_on", true); }
+    public static void setSalawatOn(Context c, boolean on) { p(c).edit().putBoolean("salawat_on", on).apply(); }
     public static boolean delivered(Context c) { return p(c).getBoolean("delivered", false); }
     public static boolean safePending(Context c) { return p(c).getBoolean("safe_pending", false); }
 
@@ -61,6 +63,20 @@ public class G {
             return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
         } catch (Exception e) { return -1; }
     }
+    public static void setUiAlive(Context c, boolean a) {
+        SharedPreferences.Editor e = p(c).edit().putBoolean("ui_alive", a);
+        if (a) e.putLong("ui_ts", System.currentTimeMillis());
+        e.apply();
+    }
+    public static void uiPing(Context c) { p(c).edit().putBoolean("ui_alive", true).putLong("ui_ts", System.currentTimeMillis()).apply(); }
+    public static boolean uiAliveFresh(Context c) {
+        return p(c).getBoolean("ui_alive", false)
+            && System.currentTimeMillis() - p(c).getLong("ui_ts", 0) < 45000;
+    }
+    public static int salawatMin(Context c) { return p(c).getInt("salawat_min", 15); }
+    public static void setSalawatMin(Context c, int m) { p(c).edit().putInt("salawat_min", m).apply(); }
+    public static long salawatLast(Context c) { return p(c).getLong("salawat_last", 0); }
+    public static void setSalawatLast(Context c, long t) { p(c).edit().putLong("salawat_last", t).apply(); }
 
     /** Warm location: last fix kept in prefs, refreshed by service/activity listeners. */
     public static void saveFix(Context c, Location l) {
@@ -128,6 +144,30 @@ public class G {
         }
     }
 
+    // 1.84 (Hilal: the «fresh measurement» age piled up into minutes): the
+    // one-shot callback above only lands when something registers it, so
+    // between button presses the snapshot aged while the label kept calling
+    // it «فوري». A PERSISTENT listener now stays registered for the app's
+    // life and the telephony stack PUSHES every cell change into freshCells
+    // — true live sync — while the one-shot remains as a manual nudge.
+    private static volatile boolean liveRegistered;
+    private static class LiveCb extends android.telephony.TelephonyCallback
+            implements android.telephony.TelephonyCallback.CellInfoListener {
+        @Override public void onCellInfoChanged(List<CellInfo> list) {
+            if (list != null) { freshCells = list; freshAt = System.currentTimeMillis(); }
+        }
+    }
+
+    public static void ensureLiveCells(Context c) {
+        if (liveRegistered || android.os.Build.VERSION.SDK_INT < 31) return;
+        try {
+            TelephonyManager tm = (TelephonyManager) c.getSystemService(Context.TELEPHONY_SERVICE);
+            if (tm == null) return;
+            tm.registerTelephonyCallback(c.getMainExecutor(), new LiveCb());
+            liveRegistered = true;
+        } catch (Exception ignored) {}
+    }
+
     public static void requestFreshCells(Context c) {
         if (android.os.Build.VERSION.SDK_INT < 31) return;
         try {
@@ -139,6 +179,7 @@ public class G {
 
     /** Signal snapshot: separate 4G (LTE) and 2G (GSM) readings — Hilal's dual meter. */
     public static JSONObject signalJson(Context c) {
+        ensureLiveCells(c);
         JSONObject out = new JSONObject();
         JSONObject lte = new JSONObject(), gsm = new JSONObject();
         boolean anyService = false;

@@ -173,12 +173,14 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        G.setUiAlive(this, true);
         try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 3, uiLoc); } catch (Exception ignored) {}
         try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 5, uiLoc); } catch (Exception ignored) {}
         pushLoc();
     }
     @Override protected void onPause() {
         super.onPause();
+        G.setUiAlive(this, false);
         try { lm.removeUpdates(uiLoc); } catch (Exception ignored) {}
     }
 
@@ -196,6 +198,19 @@ public class MainActivity extends Activity {
 
     public class Bridge {
         @JavascriptInterface public String getSignal() { return G.signalJson(MainActivity.this).toString(); }
+        @JavascriptInterface public void setSalawatOn(boolean on) { G.setSalawatOn(MainActivity.this, on); }
+        @JavascriptInterface public String getSalawatState() {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("on", G.salawatOn(MainActivity.this));
+                o.put("min", G.salawatMin(MainActivity.this));
+                o.put("last", G.salawatLast(MainActivity.this));
+                return o.toString();
+            } catch (Exception e) { return "{}"; }
+        }
+        @JavascriptInterface public void setSalawatInterval(int m) { G.setSalawatMin(MainActivity.this, m); }
+        @JavascriptInterface public void markSalawatPlayed() { G.setSalawatLast(MainActivity.this, System.currentTimeMillis()); }
+        @JavascriptInterface public void uiPing() { G.uiPing(MainActivity.this); }
 
         @JavascriptInterface public void requestLocation() {
             runOnUiThread(() -> {
@@ -254,16 +269,6 @@ public class MainActivity extends Activity {
             G.p(MainActivity.this).edit().putString("places", json).apply();
         }
 
-        @JavascriptInterface public void armSos() {
-            G.p(MainActivity.this).edit()
-                .putBoolean("armed", true).putBoolean("delivered", false)
-                .putBoolean("safe_sent", false).putBoolean("safe_pending", false)
-                .putLong("sent_at", 0).putLong("last_attempt_at", 0)
-                .putInt("send_error", 0).putInt("reject_streak", 0)
-                .putLong("armed_at", System.currentTimeMillis()).apply();
-            startWatcher();
-            G.tryFire(MainActivity.this);
-        }
 
         @JavascriptInterface public void cancelSos() {
             // Queue «أنا بخير» if the SOS was delivered — or merely sent, since a
@@ -392,7 +397,7 @@ public class MainActivity extends Activity {
                                     if (packCancel) break;
                                     File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
                                             z + "/" + x + "/" + y + (vec ? ".pbf" : ".jpg"));
-                                    if (vec ? f.exists() : (f.exists() && f.length() > 0)) { done++; continue; }
+                                    if (f.exists() && f.length() > 0) { done++; continue; } // 1.65: vec used to skip on existence alone — a 0-byte shell saved in a flaky fetch was then skipped forever and rendered as a blank tile at deep zoom
                                     String url = vec
                                             ? tpl.replace("{z}", "" + z).replace("{x}", "" + x).replace("{y}", "" + y)
                                             : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x;
@@ -522,7 +527,7 @@ public class MainActivity extends Activity {
                                     if (packCancel) break;
                                     File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
                                             z + "/" + x + "/" + y + (vec ? ".pbf" : ".jpg"));
-                                    if (vec ? f.exists() : (f.exists() && f.length() > 0)) { done++; continue; }
+                                    if (f.exists() && f.length() > 0) { done++; continue; } // 1.65: vec used to skip on existence alone — a 0-byte shell saved in a flaky fetch was then skipped forever and rendered as a blank tile at deep zoom
                                     String url = vec
                                             ? tpl.replace("{z}", "" + z).replace("{x}", "" + x).replace("{y}", "" + y)
                                             : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x;
@@ -686,15 +691,6 @@ public class MainActivity extends Activity {
             } catch (Exception e) { return "{\"ok\":false}"; }
         }
 
-        @JavascriptInterface public void deletePack(int idx) {
-            try {
-                android.content.SharedPreferences sp = G.p(MainActivity.this);
-                JSONArray packs = new JSONArray(sp.getString("packs", "[]"));
-                JSONArray keep = new JSONArray();
-                for (int i = 0; i < packs.length(); i++) if (i != idx) keep.put(packs.get(i));
-                sp.edit().putString("packs", keep.toString()).apply();
-            } catch (Exception ignored) {}
-        }
 
         @JavascriptInterface public void clearTiles() {
             deleteRecursive(new File(getFilesDir(), "tiles"));
@@ -721,6 +717,7 @@ public class MainActivity extends Activity {
         if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
         if (path.endsWith(".webp")) return "image/webp";
         if (path.endsWith(".svg")) return "image/svg+xml";
+        if (path.endsWith(".mp3")) return "audio/mpeg";
         return "application/octet-stream";
     }
 
@@ -793,6 +790,7 @@ public class MainActivity extends Activity {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(12000); c.setReadTimeout(12000);
             c.setRequestProperty("User-Agent", "AlHaris-Guardian/1.28 (free offline safety maps)");
+            c.setRequestProperty("Accept-Encoding", "identity"); // 1.67: server declares the gzip-compressed length (631) while the stream delivers the raw tile (729) — transparent gzip made the 1.66 length check fail every tile and abort packs
             if (c.getResponseCode() != 200) return null;
             InputStream in = c.getInputStream();
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
@@ -836,7 +834,9 @@ public class MainActivity extends Activity {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(12000); c.setReadTimeout(12000);
             c.setRequestProperty("User-Agent", "AlHaris-Guardian/1.28 (free offline safety maps)");
+            c.setRequestProperty("Accept-Encoding", "identity"); // 1.67: same as fetchTile
             if (c.getResponseCode() != 200) return -1;
+            long declared = c.getContentLengthLong();
             dest.getParentFile().mkdirs();
             File tmp = new File(dest.getPath() + ".tmp");
             InputStream in = c.getInputStream();
@@ -844,7 +844,13 @@ public class MainActivity extends Activity {
             byte[] buf = new byte[8192]; int r; long total = 0;
             while ((r = in.read(buf)) > 0) { out.write(buf, 0, r); total += r; }
             out.close(); in.close();
-            // A 200 with an empty body is a legitimately empty vector tile — keep it as done.
+            // 1.66: a connection that dies mid-body ends the stream quietly —
+            // without this check the truncated half-tile was saved as complete
+            // and rendered as a permanently blank map tile (undecodable .pbf).
+            if (declared > 0 && total != declared) { tmp.delete(); return -1; }
+            // 1.65: an empty body is a FAILED fetch, never a tile — a 0-byte
+            // .pbf saved as "done" renders as a permanently blank map tile.
+            if (total == 0) { tmp.delete(); return -1; }
             if (!tmp.renameTo(dest)) { tmp.delete(); return -1; }
             return total;
         } catch (Exception e) { return -1; }

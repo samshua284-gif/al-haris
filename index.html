@@ -30,8 +30,10 @@
     <div id="sceneWrap"><img id="sceneBg" alt=""><div id="caravan"></div>
       <div class="heroBar">
         <span id="animState">قافلتك تمشي…</span>
-        <button id="btnAnim" class="btn small">إيقاف الحركة</button>
       </div>
+    <button id="btnSalawat" class="btn small">🔔 الصلاة: تعمل</button>
+    <button id="btnAnim" class="btn small">إيقاف الحركة</button>
+    <div id="salawatBanner" title="اختر مدة التذكير"><span class="sal-text">اللهم صلِ وسلّم على سيّدنا محمد</span></div>
     </div>
     <svg class="threads" viewBox="0 0 432 152" preserveAspectRatio="none" aria-hidden="true">
       <defs>
@@ -52,6 +54,7 @@
       <circle class="spk" cx="24" cy="34" r="1.3" fill="#ffffff" style="animation-delay:.6s"/>
     </svg>
   </section>
+  <div id="salawatPop"><div class="sal-pop-in"><div class="sal-pop-t">⏱ التذكير كل…</div><button class="sal-opt" data-min="5">٥ دقائق</button><button class="sal-opt" data-min="10">١٠ دقائق</button><button class="sal-opt" data-min="15">١٥ دقيقة</button><button class="sal-opt" data-min="30">٣٠ دقيقة</button></div></div>
 
   <section class="card">
     <div class="cardHead">
@@ -168,12 +171,13 @@
       <svg class="ic icGold" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round"/></svg>
       <h2>الخريطة — تعمل بلا إنترنت</h2>
     </div>
-    <div id="mapView"></div>
+    <div id="mapView"><div id="navDist" class="navDist" style="display:none"></div></div>
     <div class="row">
       <button class="btn small gold" id="btnLayerRoads">طرق</button>
       <button class="btn small" id="btnLayerSat">أقمار</button>
       <span class="grow"></span>
       <button class="btn small" id="btnMyLoc">◎ موقعي</button>
+      <button class="btn small" id="btnHeadingUp">🧭 اتجاهي</button>
       <button class="btn small" id="btnPinHere">📌 ثبّت مكاني</button>
       <button class="btn small" id="btnFullMap">⛶ ملء الشاشة</button>
     </div>
@@ -244,10 +248,11 @@
       <textarea id="inMsg" class="inp" rows="3"></textarea></label>
     <label>نص رسالة الطمأنينة<textarea id="inOkMsg" class="inp" rows="2"></textarea></label>
     <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
+    <button class="btn danger" id="btnResetSetup">إعادة الضبط — مسح ما كتبتُه بيدي</button>
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.64 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.102 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
 <main id="page-hunt" class="page">

@@ -17,11 +17,14 @@ import android.os.Looper;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
+import android.content.res.AssetFileDescriptor;
+import android.media.MediaPlayer;
 
 /** The tireless watcher: keeps location warm, catches the first flicker, looses the bow. */
 public class WatchService extends Service {
     private Handler h = new Handler(Looper.getMainLooper());
     private LocationManager lm;
+    private MediaPlayer salPlayer;
     private boolean wasNoService = false;
 
     private final LocationListener locListener = new LocationListener() {
@@ -43,8 +46,45 @@ public class WatchService extends Service {
         }
     };
 
+    /* Salawat (1.97): 60 s heartbeat; plays the chosen clip when the
+       configured interval (5/10/15/30 min) has elapsed and the UI is away.
+       UI presence is freshness-checked, so a killed app can never mute
+       the watcher forever. */
+    private final Runnable salawatTick = new Runnable() {
+        @Override public void run() {
+            try {
+                if (G.salawatOn(WatchService.this) && !G.uiAliveFresh(WatchService.this)) {
+                    long now = System.currentTimeMillis();
+                    if (now - G.salawatLast(WatchService.this) >= G.salawatMin(WatchService.this) * 60000L) {
+                        G.setSalawatLast(WatchService.this, now);
+                        playSalawat();
+                    }
+                }
+            } catch (Exception ignored) {}
+            h.postDelayed(this, 60000);
+        }
+    };
+
+    private void playSalawat() {
+        try {
+            if (salPlayer != null) { salPlayer.release(); salPlayer = null; }
+            AssetFileDescriptor afd = getAssets().openFd("www/salawat2.mp3");
+            final MediaPlayer mp = new MediaPlayer();
+            salPlayer = mp;
+            mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+            mp.setOnCompletionListener(m -> {
+                try { m.release(); } catch (Exception ignored) {}
+                if (salPlayer == m) salPlayer = null;
+            });
+            mp.prepare();
+            mp.start();
+        } catch (Exception ignored) {}
+    }
+
     @Override public void onCreate() {
         super.onCreate();
+        h.postDelayed(salawatTick, 60000);
         createChannel();
         startForeground(7, buildNotification("الحارس يراقب"));
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -98,6 +138,11 @@ public class WatchService extends Service {
     }
 
     @Override public int onStartCommand(Intent i, int flags, int id) { return START_STICKY; }
-    @Override public void onDestroy() { h.removeCallbacks(tick); super.onDestroy(); }
+    @Override public void onDestroy() {
+        h.removeCallbacks(tick);
+        h.removeCallbacks(salawatTick);
+        if (salPlayer != null) { try { salPlayer.release(); } catch (Exception ignored) {} salPlayer = null; }
+        super.onDestroy();
+    }
     @Override public IBinder onBind(Intent i) { return null; }
 }

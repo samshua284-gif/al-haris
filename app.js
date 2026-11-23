@@ -9,20 +9,40 @@ let state={},sig={},myLoc=null,heading=null,beaconOn=false,setupFilled=false;
 function buildBars(el){el.innerHTML='';for(let i=0;i<5;i++){const b=document.createElement('i');b.style.height=(7+i*5.5)+'px';el.appendChild(b)}}
 buildBars($('bars4'));buildBars($('bars2'));
 function words(level,has){if(!has)return'لا قياس الآن';return['شبه معدوم','ضعيف','متوسط','جيد','ممتاز'][level]||'—'}
-function gauge(net,obj,otherHas,otherName){
+// 1.84: the age label tells the truth — «فوري» only while the snapshot is
+// genuinely fresh (<=30s); after that it is «آخر قياس» with minutes.
+function freshTxt(sec){
+  if(typeof sec!=='number'||sec<0)return'';
+  if(sec<=30)return' • قياس فوري قبل '+sec+' ث';
+  if(sec<120)return' • آخر قياس قبل '+sec+' ث';
+  return' • آخر قياس قبل '+Math.round(sec/60)+' د';
+}
+/* 1.83 (Hilal: bars that mirror the phone + honest words): the level is no
+   longer Samsung's getLevel() — at -123 dBm it reported 0 while the phone
+   showed bars and service worked, so the meter showed all-dim bars and the
+   word «شبه معدوم». Our own ladder from the dBm number now drives the green
+   bars and the word together, per technology. */
+function lvlFor(tech,dbm){
+  if(tech==='gsm')return dbm>=-77?4:dbm>=-87?3:dbm>=-97?2:dbm>=-107?1:0;
+  if(tech==='wcdma')return dbm>=-85?4:dbm>=-95?3:dbm>=-105?2:dbm>=-115?1:0;
+  return dbm>=-95?4:dbm>=-105?3:dbm>=-115?2:dbm>=-127?1:0; // lte + nr (RSRP scale)
+}
+function gauge(net,obj,otherHas,otherName,tech){
   const bars=$(net==='lte'?'bars4':'bars2'),dbm=$(net==='lte'?'dbm4':'dbm2'),lab=$(net==='lte'?'lab4':'lab2');
-  const has=obj&&typeof obj.level==='number';
-  [...bars.children].forEach((b,i)=>b.className=has&&i<obj.level?'on':'');
+  const has=obj&&typeof obj.dbm==='number';
+  const lvl=has?lvlFor(tech||(net==='lte'?'lte':'gsm'),obj.dbm):-1;
+  [...bars.children].forEach((b,i)=>b.className=has&&i<lvl+1?'on':'');
   dbm.textContent=has?(obj.dbm+' dBm'):'—';
   // One SIM camps on one generation at a time: when the other generation is the
   // camped one, say so instead of a bare "no measurement" (1.35).
-  lab.textContent=has?words(obj.level,true):(otherHas?('هاتفك على '+otherName+' الآن'):'لا قياس الآن');
+  lab.textContent=has?words(lvl,true):(otherHas?('هاتفك على '+otherName+' الآن'):'لا قياس الآن');
 }
 
 /* ---------- geo helpers ---------- */
 function hav(a,b,c,d){const R=6371000,t=Math.PI/180;const x=(c-a)*t,y=(d-b)*t;const h=Math.sin(x/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 function brg(a,b,c,d){const t=Math.PI/180;const y=Math.sin((d-b)*t)*Math.cos(c*t);const x=Math.cos(a*t)*Math.sin(c*t)-Math.sin(a*t)*Math.cos(c*t)*Math.cos((d-b)*t);return (Math.atan2(y,x)/t+360)%360}
 function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' كم':Math.round(m)+' م'}
+function chipDist(m){return m<1000?Math.round(m/5)*5+' م':(m<10000?(m/1000).toFixed(2)+' كم':fmtDist(m))}
 
 /* ---------- places & arrow ---------- */
 function renderHome(){
@@ -43,14 +63,23 @@ function renderHomeArrow(){
   g.style.opacity=1;g.style.transform='rotate('+(rel-90)+'deg)';
   tEl.textContent='العودة إلى: '+best.name+' • '+fmtDist(bd);
 }
+let _selSig='';
 function renderPlaces(){
   renderHome();
   const list=$('placesList');const pl=state.places||[];
-  const sel=$('arrowTarget');const cur=sel.value;
-  sel.innerHTML='<option value="">— اختر هدف العودة —</option>';
-  pl.forEach((p,i)=>{const o=document.createElement('option');o.value='p'+i;o.textContent='📍 '+p.name;sel.appendChild(o)});
-  if((state.whispers||[]).length){const o=document.createElement('option');o.value='w';o.textContent='📶 أقرب لمعة معروفة';sel.appendChild(o)}
-  if(cur)sel.value=cur;
+  const sel=$('arrowTarget');
+  // 1.96: rebuild the target menu ONLY when its options truly change, and
+  // never while it is open — rebuilding it every refresh/location fix made
+  // the open menu flicker (Hilal's report, 2026-11-23).
+  const sig=pl.map(p=>p.name).join('|')+'#'+((state.whispers||[]).length?1:0);
+  if(sig!==_selSig&&document.activeElement!==sel){
+    _selSig=sig;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">— اختر هدف العودة —</option>';
+    pl.forEach((p,i)=>{const o=document.createElement('option');o.value='p'+i;o.textContent='📍 '+p.name;sel.appendChild(o)});
+    if((state.whispers||[]).length){const o=document.createElement('option');o.value='w';o.textContent='📶 أقرب لمعة معروفة';sel.appendChild(o)}
+    if(cur)sel.value=cur;
+  }
   if(!pl.length){list.innerHTML='<p class="dim">لا أماكن بعد — التطبيق يبدأ فارغًا تمامًا لأي إنسان في أي بلد، وأنت تثبّت أماكنك بنفسك.</p>';return}
   list.innerHTML='';
   pl.forEach((p,i)=>{
@@ -91,7 +120,10 @@ $('arrowTarget').addEventListener('change',renderArrow);
 $('arrowBox').onclick=()=>{const t=arrowTargetObj();if(t)openMapAt(t.lat,t.lng);else openMap()};
 $('homeArrowGlyph').onclick=()=>{const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 $('homeArrowText').onclick=()=>{const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
-window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow()}});
+let headingUp=false,lastBearingApplied=null,courseFix=null,gpsCourse=null,gpsCourseTs=0;
+function effHeading(){return (gpsCourse!=null&&Date.now()-gpsCourseTs<25000)?gpsCourse:heading}
+function applyHeadingUp(){if(!headingUp||!mapObj)return;const eh=effHeading();if(eh==null)return;let d=lastBearingApplied==null?99:Math.abs(((eh-lastBearingApplied+540)%360)-180);if(d<3)return;lastBearingApplied=eh;try{mapObj.easeTo({bearing:eh,duration:250})}catch(e){}}
+window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow();applyHeadingUp()}});
 
 /* ---------- SOS panels ---------- */
 let sosWasArmed=false;
@@ -126,13 +158,20 @@ function renderSos(){
 }
 
 /* ---------- flickers ---------- */
+let _flickSig='';
 function renderFlickers(){
   const list=$('flickerList');const ws=state.whispers||[];
+  // 1.96: same anti-flicker guard — redraw only when the log truly changes.
+  const fsig=ws.length+'|'+(ws.length?ws[ws.length-1].at:'');
+  if(fsig===_flickSig)return; _flickSig=fsig;
   if(!ws.length){list.innerHTML='<p class="dim">لا لمعات مسجلة بعد — كل موضع تلمع فيه شبكة يُحفَظ هنا بصمت، وزرّ «سجّل لمعة هنا» يحفظ موضعك الحالي يدويًا.</p>';return}
   list.innerHTML='';
   ws.slice(-8).reverse().forEach(w=>{
     const d=document.createElement('div');d.className='flickRow';
     d.innerHTML='<span>📶 '+(w.net||'شبكة')+' '+(w.dbm||'')+'dBm</span><span class="dim">'+new Date(w.at).toLocaleString()+'</span>';
+    // 1.99 (Hilal): a flicker row was display-only — now, like a saved
+    // place, tapping it opens the map at the flicker and guides to it.
+    d.onclick=()=>{if(w.lat&&w.lng)openMapAt(w.lat,w.lng)};
     list.appendChild(d);
   });
 }
@@ -149,12 +188,13 @@ function refresh(){
   // camped on 5G no longer looks like a dead meter.
   const modern=(sig.lte&&typeof sig.lte.level==='number')?sig.lte:((sig.nr&&typeof sig.nr.level==='number')?sig.nr:((sig.wcdma&&typeof sig.wcdma.level==='number')?sig.wcdma:{}));
   if($('gnameModern'))$('gnameModern').textContent=(sig.nr&&typeof sig.nr.level==='number')?'5G':((sig.lte&&typeof sig.lte.level==='number')?'4G':((sig.wcdma&&typeof sig.wcdma.level==='number')?'3G':'4G/5G'));
-  gauge('lte',modern,!!(sig.gsm&&typeof sig.gsm.level==='number'),'2G');
+  const modernTech=(sig.lte&&typeof sig.lte.level==='number')?'lte':((sig.nr&&typeof sig.nr.level==='number')?'nr':((sig.wcdma&&typeof sig.wcdma.level==='number')?'wcdma':'lte'));
+  gauge('lte',modern,!!(sig.gsm&&typeof sig.gsm.level==='number'),'2G',modernTech);
   gauge('gsm',sig.gsm,!!(modern&&typeof modern.level==='number'),'شبكة حديثة');
-  $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(sig.camp?(' • مخيّم الآن على '+sig.camp):'')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'')+(typeof sig.freshSec==='number'&&sig.freshSec>=0?(' • قياس فوري قبل '+sig.freshSec+' ث'):'');
+  $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(sig.camp?(' • مخيّم الآن على '+sig.camp):'')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'')+freshTxt(sig.freshSec);
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();
 }
-window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser();renderLocStatus();updateNav();if(curPage==='map')refreshPackEst()};
+window.__onLoc=l=>{if(l&&l.lat){if(courseFix&&hav(courseFix.lat,courseFix.lng,l.lat,l.lng)>=6){gpsCourse=brg(courseFix.lat,courseFix.lng,l.lat,l.lng);gpsCourseTs=Date.now();courseFix=l}else if(!courseFix)courseFix=l}myLoc=l;renderArrow();renderPlaces();renderMapUser();renderLocStatus();updateNav();applyHeadingUp();if(curPage==='map')refreshPackEst()}
 
 /* ---------- actions ---------- */
 $('btnAddPlace').onclick=()=>{
@@ -249,6 +289,11 @@ $('btnSaveSetup').onclick=()=>{
   GN&&GN.saveSetup($('inName').value,$('inNumbers').value,$('inMsg').value,$('inOkMsg').value);
   setupFilled=true;setTimeout(refresh,300);alert('حُفظ الإعداد على هاتفك ✓');
 };
+$('btnResetSetup').onclick=()=>{
+  if(!confirm('سيُمسح الاسم وأرقام الاستغاثة وأي نص كتبتَه بيدك، وتعود القوالب الافتراضية. متأكد؟'))return;
+  GN&&GN.saveSetup('','','','');
+  setupFilled=false;setTimeout(refresh,300);alert('أُعيد الضبط — عاد الإعداد كما في أول تشغيل ✓');
+};
 function fillSetup(){
   $('inName').value=state.name||'';$('inNumbers').value=state.recipients||'';
   $('inMsg').value=state.template||'';$('inOkMsg').value=state.safeTemplate||'';
@@ -266,91 +311,523 @@ function showPage(name){
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPage(t.dataset.page)));
 
-/* ---------- caravan: painted caravan, 6-pose pacing cycle, endless groups of 4 ----------
-   1.62 gait merge (Hilal's order): body vertical + sway curves are sampled
-   VERBATIM from the CAMEL_GAIT model he brought (double bob, peaks at
-   25%/75%; sway ±4.5° damped ×0.25 for a side-view sprite). Pose fractions
-   and stride stay as measured from his real camel video — measured beats
-   constructed where they overlap. */
-const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],camelShadows=[],printPool=[],lastStep=[],printIdx=0,SLOTS=[],TRACK=0,CDW=0,CH=52,SHIFT=0,lastTs=0;
-function caravanInit(){
-  if(!ART)return;
-  $('sceneBg').src=ART.scene;
-  const k=CH/ART.cellH;CDW=Math.round(ART.cellW*k);
-  for(let i=0;i<8;i++){
-    const d=document.createElement('div');d.className='camel';
-    d.style.width=CDW+'px';d.style.height=CH+'px';
-    d.style.backgroundImage='url('+ART.camelsA+')';d._h=0;
-    d.style.backgroundSize=(ART.halfW*k)+'px '+CH+'px';
-    d.style.backgroundPosition=(-(i%ART.cells)*CDW)+'px 0px';
-    d.style.transformOrigin='50% 100%';
-    layer.appendChild(d);camelEls.push(d);
-    const sh=document.createElement('div');sh.className='cshadow';sh.style.width=Math.round(CDW*1.30)+'px';
-    layer.appendChild(sh);camelShadows.push(sh);
+/* =========================================================
+   CAMEL CARAVAN 1.81 — PACING GAIT RESTORED
+   Based on original camel_gait.js + approved caravan 1.80
+
+   Preserves:
+   - 8 camel sprites / 2 groups of 4
+   - Endless right-to-left caravan
+   - Original ART sprite sheets
+   - Six-pose image sequence
+   - Shadows and footprint particles
+   - Motion controls and safety freeze
+
+   Fixes:
+   - Correct 3.2-second gait cycle
+   - Correct stride-to-speed synchronization
+   - No artificial body jumping
+   - Smooth cyclic body sway
+   ========================================================= */
+
+
+/* ---------- caravan setup ---------- */
+
+const wrap = $('sceneWrap');
+const layer = $('caravan');
+
+let motionUser = true;
+
+let camelEls = [];
+let camelShadows = [];
+let printPool = [];
+
+let lastStep = [];
+let printIdx = 0;
+
+let SLOTS = [];
+
+let TRACK = 0;
+let CDW = 0;
+let CH = 52;
+
+let SHIFT = 0;
+
+let lastTs = 0;
+
+
+/* ---------- gait constants ---------- */
+
+// Original caravan speed (the live gait clock is the CAMEL_GAIT
+// duration below; the old stride/sway tables and the six-pose
+// sequencer were removed in the 1.102 dead-code cleanup —
+// uncalled since the 1.89 sprite clock took over. The gait
+// data itself stays preserved in gait-incoming/.)
+const CARAVAN_SPEED = 11;
+
+
+/* ---------- initialize caravan ---------- */
+
+function caravanInit() {
+
+  if (!ART) return;
+
+  $('sceneBg').src = ART.scene;
+
+  const k = CH / ART.cellH;
+
+  CDW = Math.round(ART.cellW * k);
+
+  // Eight camels
+  for (let i = 0; i < 8; i++) {
+
+    const d = document.createElement('div');
+
+    d.className = 'camel';
+
+    d.style.width = CDW + 'px';
+    d.style.height = CH + 'px';
+
+    d.style.backgroundImage =
+      'url(' + ART.camelsA + ')';
+
+    d.style.backgroundSize =
+      (ART.halfW * k) + 'px ' + CH + 'px';
+
+    d.style.backgroundRepeat = 'no-repeat';
+
+    d.style.backgroundPosition = '0px 0px';
+
+    d.style.transformOrigin = '50% 100%';
+
+    d._h = 0;
+
+    layer.appendChild(d);
+
+    camelEls.push(d);
+
+
+    // Ground shadow
+    const sh = document.createElement('div');
+
+    sh.className = 'cshadow';
+
+    sh.style.width =
+      Math.round(CDW * 1.30) + 'px';
+
+    layer.appendChild(sh);
+
+    camelShadows.push(sh);
   }
-  const SP=CDW+6,GG=90;
-  for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
-  TRACK=2*(4*SP+GG);
-  for(let j=0;j<30;j++){const u=document.createElement('div');u.className='puff';u.style.opacity='0';layer.appendChild(u);printPool.push({puff:u,born:-1e9,fx:0})}
+
+
+  // Original spacing
+  const SP = CDW + 6;
+  const GG = 90;
+
+  for (let g = 0; g < 2; g++) {
+
+    for (let i = 0; i < 4; i++) {
+
+      SLOTS.push(
+        g * (4 * SP + GG) + i * SP
+      );
+    }
+  }
+
+  TRACK = 2 * (4 * SP + GG);
+
+
+  // Footprint particle pool
+  for (let j = 0; j < 30; j++) {
+
+    const u = document.createElement('div');
+
+    u.className = 'puff';
+
+    u.style.opacity = '0';
+
+    layer.appendChild(u);
+
+    printPool.push({
+      puff: u,
+      born: -1e9,
+      fx: 0
+    });
+  }
 }
-function motionWanted(){
-  if(!motionUser)return false;
-  if(curPage!=='home')return false;
-  if(state.armed)return false;
-  if(typeof sig.battery==='number'&&sig.battery>=0&&sig.battery<20)return false;
-  if(document.hidden)return false;
+
+
+/* ---------- motion control ---------- */
+
+function motionWanted() {
+
+  if (!motionUser) return false;
+
+  if (curPage !== 'home') return false;
+
+  if (state.armed) return false;
+
+  if (
+    typeof sig.battery === 'number' &&
+    sig.battery >= 0 &&
+    sig.battery < 20
+  ) return false;
+
+  if (document.hidden) return false;
+
   return true;
 }
-function updateMotion(){
-  const on=motionWanted();
-  $('animState').textContent=state.armed?'الحركة مجمّدة — وضع الخطر':(!motionUser?'القافلة ثابتة — كما في الصورة':(typeof sig.battery==='number'&&sig.battery<20?'الحركة مجمّدة — البطارية ضعيفة':'قافلتك تمشي…'));
-  $('btnAnim').textContent=motionUser?'إيقاف الحركة':'تشغيل الحركة';
+
+
+function updateMotion() {
+
+  const on = motionWanted();
+
+  $('animState').textContent =
+    state.armed
+      ? 'الحركة مجمّدة — وضع الخطر'
+      : (!motionUser
+        ? 'القافلة ثابتة'
+        : (typeof sig.battery === 'number' &&
+           sig.battery < 20
+          ? 'الحركة مجمّدة — البطارية ضعيفة'
+          : 'قافلتك تمشي…'));
+
+  $('btnAnim').textContent =
+    motionUser
+      ? 'إيقاف الحركة'
+      : 'تشغيل الحركة';
 }
-$('btnAnim').onclick=()=>{motionUser=!motionUser;updateMotion()};
-/* CAMEL_GAIT body curves (model Hilal brought, 2026-11-23): vertical_m and
-   sway_deg at 13 keyframes 0..100% — sampled with the same lerp as camelPose. */
-const GAIT_V=[0.035,0.048,0.073,0.085,0.073,0.048,0.035,0.048,0.072,0.085,0.073,0.048,0.035];
-const GAIT_S=[0,2.2,3.9,4.5,3.9,2.2,0,-2.3,-3.9,-4.5,-3.9,-2.3,0];
-function gaitSample(arr,u){const x=u*(arr.length-1),i=Math.min(Math.floor(x),arr.length-2),a=x-i;return arr[i]+(arr[i+1]-arr[i])*a}
-function caravanLoop(ts){
+
+
+$('btnAnim').onclick = () => {
+
+  motionUser = !motionUser;
+
+  updateMotion();
+};
+
+
+/* ---------- salawat (1.97): persistent antique frame, top-right of the
+   scene, carrying the interval chips (5/10/15/30 min). One chosen voice.
+   State (on / interval / last-played) lives in native prefs via GN and
+   is shared with the WatchService, which plays when the UI is away. --- */
+const SALAWAT_FILE = 'salawat2.mp3';
+let salawatOn = true, salawatMin = 15, salawatLast = 0, salawatPrimed = false;
+try {
+  if (window.GN && GN.getSalawatState) {
+    const st = J(GN.getSalawatState(), {});
+    if (st.on !== undefined) salawatOn = !!st.on;
+    if (st.min) salawatMin = st.min;
+    if (st.last) salawatLast = st.last;
+  }
+} catch (e) {}
+const salawatAudio = new Audio();
+salawatAudio.preload = 'auto';
+document.addEventListener('pointerdown', () => {
+  if (salawatPrimed) return; salawatPrimed = true;
+  try { salawatAudio.src = 'https://app.local/' + SALAWAT_FILE; salawatAudio.load(); } catch (e) {}
+}, { passive: true });
+function salawatPlay() {
+  salawatLast = Date.now();
+  try { if (window.GN && GN.markSalawatPlayed) GN.markSalawatPlayed(); } catch (e) {}
+  const p = $('salawatBanner');
+  if (p) { p.classList.remove('playing'); void p.offsetWidth; p.classList.add('playing'); setTimeout(() => p.classList.remove('playing'), 5000); }
+  try {
+    salawatAudio.src = 'https://app.local/' + SALAWAT_FILE;
+    const pr = salawatAudio.play(); if (pr && pr.catch) pr.catch(() => {});
+  } catch (e) {}
+}
+function salawatPaint() {
+  const b = $('btnSalawat');
+  if (b) b.textContent = salawatOn ? '🔔 الصلاة: تعمل' : '🔕 الصلاة: صامتة';
+  const p = $('salawatBanner');
+  if (p) p.classList.toggle('off', !salawatOn);
+  document.querySelectorAll('.sal-opt').forEach(c =>
+    c.classList.toggle('sel', +c.getAttribute('data-min') === salawatMin));
+}
+(function () {
+  const b = $('btnSalawat');
+  if (b) b.onclick = () => {
+    salawatOn = !salawatOn;
+    try { if (window.GN && GN.setSalawatOn) GN.setSalawatOn(salawatOn); } catch (e) {}
+    salawatPaint();
+  };
+  const bn = $('salawatBanner'), pop = $('salawatPop');
+  if (bn && pop) {
+    bn.addEventListener('click', () => {
+      if (pop.classList.contains('open')) { pop.classList.remove('open'); return; }
+      const r = bn.getBoundingClientRect();
+      pop.style.top = (r.bottom + 6) + 'px';
+      pop.style.right = Math.max(4, window.innerWidth - r.right) + 'px';
+      pop.classList.add('open');
+    });
+    document.addEventListener('pointerdown', ev => {
+      if (pop.classList.contains('open') && !pop.contains(ev.target) && !bn.contains(ev.target))
+        pop.classList.remove('open');
+    });
+  }
+  document.querySelectorAll('.sal-opt').forEach(c => {
+    c.onclick = () => {
+      salawatMin = +c.getAttribute('data-min');
+      try { if (window.GN && GN.setSalawatInterval) GN.setSalawatInterval(salawatMin); } catch (e) {}
+      salawatPaint();
+      if (pop) pop.classList.remove('open');
+      salawatPlay();
+    };
+  });
+  salawatPaint();
+})();
+setInterval(() => { try { if (window.GN && GN.uiPing) GN.uiPing(); } catch (e) {} }, 20000);
+setInterval(() => {
+  if (!salawatOn || document.hidden) return;
+  if (Date.now() - salawatLast >= salawatMin * 60000) salawatPlay();
+}, 20000);
+
+
+/* CAMEL SPRITE ORDER — CORRECTED (constants measured from the
+   artwork itself in 1.90: 4 variants x 3 poses per sheet x 6 poses;
+   the 3/4/8 constants made each camel change colours every step) */
+
+const CAMEL_VARIANTS = 4;
+const CAMEL_FRAMES_PER_SHEET = 3;
+const CAMEL_TOTAL_FRAMES = 6;
+
+function getCamelSprite(u, variant) {
+  const phase = ((u % 1) + 1) % 1;
+
+  const frame = Math.min(
+    CAMEL_TOTAL_FRAMES - 1,
+    Math.floor(phase * CAMEL_TOTAL_FRAMES)
+  );
+
+  const sheetIndex = Math.floor(
+    frame / CAMEL_FRAMES_PER_SHEET
+  );
+
+  const frameInSheet =
+    frame % CAMEL_FRAMES_PER_SHEET;
+
+  // Image order: frame first, camel variant second
+  const cell =
+    frameInSheet * CAMEL_VARIANTS +
+    (variant % CAMEL_VARIANTS);
+
+  return {
+    sheet: sheetIndex === 0
+      ? ART.camelsA
+      : ART.camelsB,
+    cell,
+    frame
+  };
+}
+
+
+/* INDEPENDENT GAIT CLOCK */
+
+const CAMEL_GAIT_DURATION = 3.2;
+
+let camelGaitTime = 0;
+
+function updateCamelGait(dt, on) {
+  if (!on) return;
+
+  camelGaitTime += dt / 1000;
+
+  if (camelGaitTime >= CAMEL_GAIT_DURATION) {
+    camelGaitTime %= CAMEL_GAIT_DURATION;
+  }
+}
+
+function getCamelGaitPhase(index) {
+  const offset = index * 0.12;
+
+  return (
+    (camelGaitTime / CAMEL_GAIT_DURATION + offset) % 1
+  );
+}
+
+
+/* ---------- endless caravan animation ---------- */
+
+function caravanLoop(ts) {
+
   requestAnimationFrame(caravanLoop);
-  if(!camelEls.length)return;
-  const dt=Math.min(250,ts-(lastTs||ts));lastTs=ts;
-  const on=motionWanted();wrap.classList.toggle('frozen',!on);
-  if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
-  const stridePx=24;
-  camelEls.forEach((d,i)=>{
-    let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
-    const ph=(SHIFT+i*11)/stridePx;
-    const uu=ph-Math.floor(ph);const fr=uu<0.22?0:uu<0.35?4:uu<0.53?3:uu<0.66?5:uu<0.88?1:2;
-    const bob=on?-(gaitSample(GAIT_V,uu)-0.06)*44:0;
-    const sway=on?gaitSample(GAIT_S,uu)*0.25:0;
-    d.style.transform='translate3d('+x+'px,'+bob.toFixed(2)+'px,0) rotate('+sway.toFixed(2)+'deg)';
-    const cell=(fr*ART.cells)+(i%ART.cells),half=cell>=12?1:0;
-    if(d._h!==half){d.style.backgroundImage='url('+(half?ART.camelsB:ART.camelsA)+')';d._h=half}
-    d.style.backgroundPosition=(-((cell%12)*CDW))+'px 0px';
-    camelShadows[i].style.transform='translate3d('+(x-CDW*0.26)+'px,0,0) rotate(-3deg)';
-    const sIdx=Math.floor(ph*2);
-    if(lastStep[i]===undefined)lastStep[i]=sIdx;
-    if(motionWanted()&&sIdx!==lastStep[i]&&printPool.length){
-      lastStep[i]=sIdx;
-      const pr=printPool[printIdx++%printPool.length];pr.born=ts;
-      pr.fx=x+CDW*0.42+(sIdx%2)*4;
+
+  if (!camelEls.length) return;
+
+  const dt = Math.min(
+    250,
+    ts - (lastTs || ts)
+  );
+
+  lastTs = ts;
+
+  const on = motionWanted();
+
+  updateCamelGait(dt, on);
+
+  wrap.classList.toggle('frozen', !on);
+
+
+  // Keep movement and gait synchronized
+  if (on && dt > 0) {
+
+    const distance =
+      CARAVAN_SPEED * dt / 1000;
+
+    SHIFT = (SHIFT + distance) % TRACK;
+
+  }
+
+
+  camelEls.forEach((d, i) => {
+
+    /* ----- caravan position ----- */
+
+    const x =
+      ((SLOTS[i] - SHIFT) % TRACK + TRACK)
+      % TRACK - CDW - 24;
+
+
+    /* ----- gait phase: independent clock (set 2) ----- */
+
+    const uu = getCamelGaitPhase(i);
+    const sprite = getCamelSprite(uu, i % CAMEL_VARIANTS);
+
+
+    /* ----- body movement: frozen (set 2) — data height/sway stay
+       off until the frame sequence is verified ----- */
+
+    const bob = 0;
+    const sway = 0;
+
+
+    /* ----- apply body movement ----- */
+
+    d.style.transform =
+      'translate3d(' +
+      x.toFixed(2) + 'px,' +
+      bob.toFixed(2) + 'px,0) ' +
+      'rotate(' +
+      sway.toFixed(2) + 'deg)';
+
+
+    /* ----- sprite image from the precomputed sprite (set 2) ----- */
+
+    const half =
+      sprite.sheet === ART.camelsB ? 1 : 0;
+
+
+    if (d._h !== half) {
+
+      d.style.backgroundImage =
+        'url(' + sprite.sheet + ')';
+
+      d._h = half;
     }
+
+
+    d.style.backgroundPosition =
+      (-(sprite.cell * CDW)) + 'px 0px';
+
+
+    /* ----- ground shadow ----- */
+
+    const shadowX =
+      x - CDW * 0.26;
+
+    camelShadows[i].style.transform =
+      'translate3d(' +
+      shadowX.toFixed(2) +
+      'px,0,0) ' +
+      'rotate(-3deg) scaleX(1)';
+
+
+    /* ----- footprint timing ----- */
+
+    const sIdx = Math.floor(uu * 2);
+
+    if (lastStep[i] === undefined) {
+
+      lastStep[i] = sIdx;
+    }
+
+    if (
+      on &&
+      sIdx !== lastStep[i] &&
+      printPool.length
+    ) {
+
+      lastStep[i] = sIdx;
+
+      const pr =
+        printPool[
+          printIdx++ % printPool.length
+        ];
+
+      pr.born = ts;
+
+      pr.fx =
+        x + CDW * 0.42 + (sIdx % 2) * 4;
+    }
+
   });
-  printPool.forEach(pr=>{const age=(ts-pr.born)/1000;
-    if(age<1.2){pr.puff.style.opacity=String(Math.max(0,1-age/1.2)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5+7*age)+'px,'+(-3*age)+'px,0) scale('+(1+1.1*age)+')'}
-    else{pr.puff.style.opacity='0'}
+
+
+  /* ---------- footprint particles ---------- */
+
+  printPool.forEach(pr => {
+
+    const age = (ts - pr.born) / 1000;
+
+    if (age < 1.2) {
+
+      const opacity =
+        Math.max(0, 1 - age / 1.2) * 0.5;
+
+      pr.puff.style.opacity =
+        String(opacity);
+
+      pr.puff.style.transform =
+        'translate3d(' +
+        (pr.fx - 5 + 7 * age) + 'px,' +
+        (-3 * age) + 'px,0) ' +
+        'scale(' +
+        (1 + 1.1 * age) + ')';
+
+    } else {
+
+      pr.puff.style.opacity = '0';
+    }
+
   });
+
 }
+
+
+/* ---------- start caravan ---------- */
+
 caravanInit();
+
 requestAnimationFrame(caravanLoop);
+
+
+/* =========================================================
+   END CAMEL CARAVAN 1.81
+   ========================================================= */
 refresh();setInterval(refresh,2500);
+// 1.83 (Hilal: live sync with the network): the 2.5s loop only re-reads the
+// last snapshot, which can be up to 2 minutes old — pull a MODEM-fresh
+// measurement every 20s while the app is visible so the ladders breathe
+// with the network as he moves.
+setInterval(()=>{if(!document.hidden&&GN&&GN.refreshSignal)GN.refreshSignal()},20000);
 
 /* ---------- offline map (MapLibre vector engine + locally downloaded tiles) ---------- */
 let mapObj=null,mapSatMode=false,mapMarkers=[],mapUserMarker=null,mapStyleOk=false,packRadius=50,packDownloading=false;
-let navTarget=null,navArrowMarker=null;
+let navTarget=null,navArrowMarker=null,navB=null;
+function rotDart(){if(!navArrowMarker||navB==null||!mapObj)return;const sp=navArrowMarker.getElement().firstChild;if(sp)sp.style.transform='rotate('+(navB-mapObj.getBearing())+'deg)'}
 function openMap(){showPage('map')}
 function openMapAt(lat,lng){
   navTarget={lat:lat,lng:lng};
@@ -412,6 +889,10 @@ function initMap(){
       mapObj.addControl(new maplibregl.NavigationControl({showCompass:false}));
       mapObj.on('load',()=>{mapStyleOk=true;renderMapPlaces();renderMapUser()});
       mapObj.on('style.load',()=>{ensureNav();updateNav()});
+      mapObj.on('rotate',()=>rotDart());
+      // (1.100: the TEMP DIAGNOSTIC error box from the 1.81 blank-band
+      // hunt was removed for good at Hilal's order — the hunt is over.)
+
       mapObj.on('moveend',()=>{if($('packCenter').value==='center')refreshPackEst()});
       setTimeout(()=>{if(!mapStyleOk&&mapObj)$('mapView').insertAdjacentHTML('beforeend','<div class="mapWarn">المحرك المتجهي لم يكتمل تحميله — إن بقيت الخريطة فارغة أخبر جدّتك.</div>')},8000);
     }catch(e){
@@ -437,11 +918,22 @@ function renderMapPlaces(){
     const dv=document.createElement('div');dv.className='pinPop';
     dv.innerHTML='<div class="pinPopName">📍 '+p.name+'</div>';
     const del=document.createElement('button');del.className='pinDel';del.textContent='✕ حذف هذا المكان';
-    del.onclick=()=>{
-      const pl=(state.places||[]).filter(q=>q!==p);
-      GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;
-      pop.remove();renderPlaces();renderArrow();renderMapPlaces();
-    };
+    del.addEventListener('click',e=>{
+      // 1.82 fix (Hilal: popup delete did nothing): remove exactly one place
+      // matched by VALUE (name+coords) with a reference fallback, stop the tap
+      // from reaching the map, and re-render the pins FIRST so a later render
+      // error can never strand the deleted pin on the map.
+      e.stopPropagation();e.preventDefault();
+      const arr=(state.places||[]).slice();
+      let idx=arr.findIndex(q=>q.name===p.name&&q.lat===p.lat&&q.lng===p.lng);
+      if(idx<0)idx=arr.indexOf(p);
+      if(idx>=0)arr.splice(idx,1);
+      GN&&GN.savePlaces(JSON.stringify(arr));state.places=arr;
+      try{pop.remove()}catch(_){}
+      try{renderMapPlaces()}catch(_){}
+      try{renderPlaces()}catch(_){}
+      try{renderArrow()}catch(_){}
+    });
     dv.appendChild(del);pop.setDOMContent(dv);
     const mk=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([p.lng,p.lat])
       .setPopup(pop).addTo(mapObj);
@@ -474,19 +966,32 @@ function updateNav(){
   let src=null;try{src=mapObj.getSource('navsrc')}catch(e){}
   if(!src)return;
   if(!navTarget||!myLoc){
+    const nd0=$('navDist');if(nd0)nd0.style.display='none';
     src.setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
     if(navArrowMarker){navArrowMarker.remove();navArrowMarker=null}
     return;
   }
   src.setData({type:'Feature',geometry:{type:'LineString',coordinates:[[myLoc.lng,myLoc.lat],[navTarget.lng,navTarget.lat]]}});
   const b=brg(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
-  const ax=myLoc.lng+(navTarget.lng-myLoc.lng)*0.85,ay=myLoc.lat+(navTarget.lat-myLoc.lat)*0.85;
+  const nd=$('navDist');if(nd){nd.textContent='المتبقي: '+chipDist(hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng));nd.style.display='block'}
+  // 1.72: place the head in SCREEN space — a fixed pixel distance short of
+  // the target pin, so it stands visibly apart from the pin at every zoom
+  // (1.71's metre rule collapsed to the same pixel when zoomed out, and
+  // Hilal found the arrow "hiding under its mother"). Midway when the two
+  // points are 40–140 px apart; a clear 70 px off when they nearly coincide.
+  let ax,ay;
+  const pA=mapObj.project([myLoc.lng,myLoc.lat]),pB=mapObj.project([navTarget.lng,navTarget.lat]);
+  const dx=pA.x-pB.x,dy=pA.y-pB.y,pd=Math.hypot(dx,dy);
+  if(pd>1){
+    const backPx=pd>=140?Math.min(170,Math.max(70,pd*0.18)):(pd>=40?pd*0.5:70);
+    const t=backPx/pd,ll=mapObj.unproject([pB.x+dx*t,pB.y+dy*t]);
+    ax=ll.lng;ay=ll.lat;
+  }else{ax=myLoc.lng+(navTarget.lng-myLoc.lng)*0.85;ay=myLoc.lat+(navTarget.lat-myLoc.lat)*0.85;}
   if(!navArrowMarker){
     const el=document.createElement('div');el.className='navArrow';el.innerHTML='<span></span>';
     navArrowMarker=new maplibregl.Marker({element:el}).setLngLat([ax,ay]).addTo(mapObj);
   }else navArrowMarker.setLngLat([ax,ay]);
-  const sp=navArrowMarker.getElement().firstChild;
-  if(sp)sp.style.transform='rotate('+b+'deg)';
+  navB=b;rotDart();
 }
 function packCenterCoords(){
   const v=$('packCenter').value;
@@ -624,6 +1129,7 @@ $('btnOpenMapDl').onclick=()=>{showPage('map');setTimeout(()=>{const el=$('packC
 $('btnBackFromMap').onclick=()=>showPage('home');
 $('btnLayerRoads').onclick=()=>setMapLayer(false);
 $('btnLayerSat').onclick=()=>setMapLayer(true);
+$('btnHeadingUp').onclick=()=>{headingUp=!headingUp;$('btnHeadingUp').classList.toggle('gold',headingUp);lastBearingApplied=null;if(headingUp){applyHeadingUp()}else if(mapObj){try{mapObj.easeTo({bearing:0,duration:300})}catch(e){}}};
 $('btnMyLoc').onclick=()=>{
   if(!myLoc){if(GN&&GN.requestLocation)GN.requestLocation();alert('لا إشارة GPS بعد: امنح التطبيق إذن الموقع وفعّل GPS ثم انتظر ثوانٍ.');return}
   if(mapObj)mapObj.flyTo({center:[myLoc.lng,myLoc.lat],zoom:Math.max(mapObj.getZoom(),12)});

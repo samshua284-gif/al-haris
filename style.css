@@ -40,6 +40,7 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #mapView{height:56vh;min-height:320px;border-radius:14px;background:#0d1420;direction:ltr;z-index:0}
 .maplibregl-map{font-family:inherit}
 .maplibregl-ctrl-attrib{font-size:9px}
+.navDist{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(10,15,26,.85);color:#ffd977;border:1px solid rgba(217,164,65,.55);border-radius:999px;padding:6px 16px;font-size:17px;font-weight:700;white-space:nowrap}
 .mapWarn{position:absolute;left:8px;right:8px;bottom:8px;background:#3a2a10;color:#ffd977;border:1px solid #8a6a1d;border-radius:10px;padding:8px 10px;font-size:13px;z-index:5;text-align:center}
 .pin{font-size:22px;line-height:1;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
 .pinIcon,.meIcon{background:none;border:none}
@@ -129,4 +130,25 @@ button,.tab,.chip{-webkit-user-select:none;user-select:none;-webkit-touch-callou
    rotated by JS to the true bearing; the marker element itself is moved
    by MapLibre, so the rotation lives on the inner span. */
 .navArrow{width:0;height:0;pointer-events:none}
-.navArrow span{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:17px solid #ffcf4d;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65));transform-origin:50% 60%}
+.navArrow span{display:block;width:34px;height:40px;margin:-20px 0 0 -17px;background:linear-gradient(180deg,#ffe27a,#ffb52e);clip-path:polygon(50% 0%,100% 100%,50% 74%,0% 100%);filter:drop-shadow(0 0 1.6px rgba(0,0,0,.9)) drop-shadow(0 2px 3px rgba(0,0,0,.55));transform-origin:50% 50%}
+
+/* salawat frame (1.97): persistent antique Islamic frame, top-right of the
+   scene, carrying the interval chips (5/10/15/30 min) */
+#salawatBanner{position:absolute;top:2px;right:2px;z-index:6;direction:rtl;padding:6px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(10,46,34,.95),rgba(17,71,50,.95) 55%,rgba(9,36,26,.95));border:1px solid #c9a227;box-shadow:inset 0 0 0 3px rgba(10,40,28,.9),inset 0 0 0 4px rgba(201,162,39,.55),0 4px 14px rgba(0,0,0,.45);color:#f0d98c;cursor:pointer;transition:box-shadow .5s ease,opacity .5s ease}
+#salawatBanner.off{opacity:.45}
+#salawatBanner.playing{box-shadow:inset 0 0 0 3px rgba(10,40,28,.9),inset 0 0 0 4px rgba(240,217,140,.95),0 0 22px rgba(216,180,90,.75)}
+#salawatBanner .sal-text{font-family:'Traditional Arabic','Amiri',serif;font-size:13.5px;font-weight:700;line-height:1.35;text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
+/* interval popup (1.98): springs from the frame, animated gold-to-orange border */
+#salawatPop{position:fixed;z-index:60;display:none;width:172px;padding:2px;border-radius:12px;background:linear-gradient(120deg,#c9a227,#e07b39,#f0d98c,#c9a227);background-size:300% 300%;animation:salGrad 3.5s ease infinite;box-shadow:0 10px 28px rgba(0,0,0,.55)}
+#salawatPop.open{display:block}
+@keyframes salGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.sal-pop-in{background:#0b2e21;border-radius:10px;padding:8px;direction:rtl}
+.sal-pop-t{color:#f0d98c;font-size:12.5px;font-weight:700;margin-bottom:6px;text-align:center}
+.sal-opt{display:block;width:100%;margin-top:4px;background:rgba(240,217,140,.08);color:#f0d98c;border:1px solid rgba(201,162,39,.6);border-radius:8px;padding:5px 0;font-size:13px;font-family:inherit;cursor:pointer}
+.sal-opt.sel{background:#c9a227;color:#12240f;font-weight:700}
+
+/* salawat toggle (1.92): small pill at the scene's top-left, clear of the caravan */
+#btnSalawat{position:absolute;top:2px;left:2px;z-index:7;padding:3px 8px;font-size:11.5px;background:rgba(13,26,43,.82)}
+#btnAnim{position:absolute;bottom:2px;right:2px;z-index:7;padding:3px 8px;font-size:11.5px;background:rgba(13,26,43,.82)}
+
+.flickRow{cursor:pointer}
