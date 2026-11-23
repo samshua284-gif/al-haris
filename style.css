@@ -19,9 +19,12 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 .brandRow{display:flex;align-items:center;gap:13px;margin-bottom:12px}
 .shield{width:46px;height:52px;flex:0 0 auto;filter:drop-shadow(0 2px 8px rgba(232,184,75,.45))}
 .hero{padding:0;overflow:hidden}
-#sceneWrap{position:relative;height:352px;overflow:hidden;background:#1a0f08 center 30%/cover no-repeat}
+#sceneWrap{position:relative;height:252px;overflow:hidden;background:#1a0f08}
+#sceneBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 30%;filter:brightness(1.05) saturate(1.06);animation:drift 75s ease-in-out infinite alternate}
+@keyframes drift{from{transform:scale(1.09) translateX(1.1%)}to{transform:scale(1.09) translateX(-1.1%)}}
+#sceneWrap.frozen #sceneBg{animation-play-state:paused}
 #caravan{position:absolute;inset:0}
-.camel{position:absolute;bottom:88px;background-repeat:no-repeat;will-change:transform,background-position;filter:sepia(.22) brightness(.94) drop-shadow(0 3px 3px rgba(0,0,0,.35))}
+.camel{position:absolute;bottom:38px;background-repeat:no-repeat;will-change:transform,background-position;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
 .heroTop{position:absolute;top:0;right:0;left:0;padding:15px 17px 30px;background:linear-gradient(180deg,rgba(4,6,13,.62),transparent);pointer-events:none}
 .heroTop h1{text-shadow:0 2px 16px rgba(0,0,0,.8)}
 .heroTop .tag{text-shadow:0 1px 10px rgba(0,0,0,.9)}

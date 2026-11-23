@@ -150,21 +150,21 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>show
 
 /* ---------- caravan: painted caravan, 2-pose walk cycle, endless groups of 4 ---------- */
 const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=92,SHIFT=0,lastTs=0;
+let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
-  wrap.style.backgroundImage='url('+ART.scene+')';
+  $('sceneBg').src=ART.scene;
   const k=CH/ART.cellH;CDW=Math.round(ART.cellW*k);
-  for(let i=0;i<12;i++){
+  for(let i=0;i<8;i++){
     const d=document.createElement('div');d.className='camel';
     d.style.width=CDW+'px';d.style.height=CH+'px';
     d.style.backgroundImage='url('+ART.camels+')';
     d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
     layer.appendChild(d);camelEls.push(d);
   }
-  const SP=CDW+14,GG=54;
-  for(let g=0;g<3;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
-  TRACK=3*(4*SP+GG);
+  const SP=CDW+8,GG=150;
+  for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
+  TRACK=2*(4*SP+GG);
 }
 function motionWanted(){
   if(!motionUser)return false;
@@ -184,11 +184,12 @@ function caravanLoop(ts){
   requestAnimationFrame(caravanLoop);
   if(!camelEls.length)return;
   const dt=Math.min(50,ts-(lastTs||ts));lastTs=ts;
-  if(motionWanted()&&dt>0)SHIFT=(SHIFT+36*dt/1000)%TRACK;
-  const fr=Math.floor(ts/175)%2;
+  const on=motionWanted();wrap.classList.toggle('frozen',!on);
+  if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
+  const fr=Math.floor(ts/190)%2;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
-    d.style.transform='translate3d('+x+'px,'+(motionWanted()?Math.sin(ts/340+i*1.3)*1.4:0)+'px,0)';
+    d.style.transform='translate3d('+x+'px,'+(motionWanted()?Math.sin(ts/380+i*1.3)*0.8:0)+'px,0)';
     d.style.backgroundPosition=(-fr*CDW)+'px 0px';
   });
 }
