@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>الحارس</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="leaflet.css">
 </head>
 <body>
 
@@ -92,8 +93,12 @@
       <svg class="ic icGold" viewBox="0 0 24 24"><path d="M12 3v10.2m0 0L16 9.2M12 13.2 8 9.2M4 16.5V20a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 20v-3.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <h2>حزمة خرائط للتحميل</h2>
     </div>
-    <p class="dim">خرائط OpenStreetMap لبلدك — تُحمَّل مرة واحدة ثم تعمل بلا إنترنت أبدًا.</p>
-    <span class="chip">مؤجّلة بقرارك — أخبرني حين تريد بناءها</span>
+    <p class="dim">طرق OpenStreetMap + صور أقمار — تُنزَّل مرة واحدة ثم تعمل بلا إنترنت أبدًا.</p>
+    <p class="dim" id="packStatus">لا خرائط منزّلة بعد.</p>
+    <div class="row">
+      <button class="btn gold" id="btnOpenMap">افتح الخريطة</button>
+      <button class="btn" id="btnOpenMapDl">تنزيل حزمة</button>
+    </div>
   </section>
 
   <button id="btnSOS">🆘 استغاثة SOS</button>
@@ -142,6 +147,59 @@
     <button class="btn" id="btnNearestFlicker">دلّني إلى أقرب لمعة معروفة</button>
   </section>
 
+  <section class="card">
+    <h2>الخريطة دون اتصال</h2>
+    <p class="dim">أماكنك المحفوظة وموقعك على خريطة منزّلة تعمل في قلب الصحراء.</p>
+    <button class="btn gold" id="btnOpenMap2">افتح الخريطة</button>
+  </section>
+
+</main>
+
+<main id="page-map" class="page">
+  <section class="card mapcard">
+    <div class="cardHead">
+      <svg class="ic icGold" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <h2>الخريطة — تعمل بلا إنترنت</h2>
+    </div>
+    <div id="mapView"></div>
+    <div class="row">
+      <button class="btn small gold" id="btnLayerRoads">طرق</button>
+      <button class="btn small" id="btnLayerSat">أقمار</button>
+      <span class="grow"></span>
+      <button class="btn small" id="btnMyLoc">◎ موقعي</button>
+    </div>
+    <p class="dim">تظهر فقط المناطق التي نزّلتها. النقطة الزرقاء موقعك، والدبابيس أماكنك المحفوظة. © OpenStreetMap contributors · © Esri, Maxar, Earthstar Geographics</p>
+  </section>
+
+  <section class="card" id="packCard">
+    <h2>تنزيل حزمة خرائط</h2>
+    <p class="dim">نزّل وأنت متصل بالإنترنت. إذن الإنترنت في هذا التطبيق للتنزيل وحده — الخريطة نفسها تعمل بلا اتصال.</p>
+    <label>مركز الحزمة
+      <select id="packCenter" class="inp grow"></select>
+    </label>
+    <div class="row">
+      <span class="dim">النطاق:</span>
+      <button class="btn small packR" data-r="25">٢٥ كم</button>
+      <button class="btn small packR sel" data-r="50">٥٠ كم</button>
+      <button class="btn small packR" data-r="100">١٠٠ كم</button>
+    </div>
+    <p class="dim" id="packEst">…</p>
+    <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق + أقمار، زوم ٧–١٣)</button>
+    <div id="packProgWrap" class="hidden">
+      <div class="prog"><div id="packProgBar"></div></div>
+      <p class="dim" id="packProgTxt"></p>
+      <button class="btn danger small" id="btnCancelPack">إيقاف التنزيل</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>حزمي المنزّلة</h2>
+    <div id="packsList"></div>
+    <p class="dim" id="tilesSize"></p>
+    <button class="btn danger small" id="btnClearTiles">مسح كل الخرائط المنزّلة</button>
+  </section>
+
+  <button class="btn" id="btnBackFromMap">→ عودة إلى الرئيسية</button>
 </main>
 
 <main id="page-shield" class="page">
@@ -167,7 +225,7 @@
     <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
-  <footer class="dim center">الحارس 1.21 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.22 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
 <nav id="tabbar">
@@ -190,6 +248,7 @@
 </nav>
 
 <script src="art.js"></script>
+<script src="leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -121,7 +121,7 @@ function refresh(){
   $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'');
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();
 }
-window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces()};
+window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser()};
 
 /* ---------- actions ---------- */
 $('btnAddPlace').onclick=()=>{
@@ -164,6 +164,7 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===name));
   window.scrollTo(0,0);
+  if(name==='map')setTimeout(initMap,60);
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPage(t.dataset.page)));
 
@@ -236,3 +237,128 @@ function caravanLoop(ts){
 caravanInit();
 requestAnimationFrame(caravanLoop);
 refresh();setInterval(refresh,2500);
+
+/* ---------- offline map (Leaflet + locally downloaded tiles) ---------- */
+let mapObj=null,mapRoads=null,mapSat=null,mapUser=null,mapPlaceLayer=null,packRadius=50,packDownloading=false;
+function openMap(){showPage('map')}
+function initMap(){
+  if(!window.L||!GN)return;
+  if(!mapObj){
+    mapObj=L.map('mapView');
+    mapRoads=L.tileLayer('https://tiles.local/roads/{z}/{x}/{y}',{minZoom:3,maxZoom:13,attribution:'© OpenStreetMap contributors'});
+    mapSat=L.tileLayer('https://tiles.local/sat/{z}/{x}/{y}',{minZoom:3,maxZoom:13,attribution:'© Esri, Maxar, Earthstar Geographics'});
+    mapRoads.addTo(mapObj);
+    mapPlaceLayer=L.layerGroup().addTo(mapObj);
+    mapObj.setView(myLoc?[myLoc.lat,myLoc.lng]:[22.38,57.83],11);
+    mapObj.on('moveend',()=>{if($('packCenter').value==='center')refreshPackEst()});
+  }
+  setTimeout(()=>{mapObj.invalidateSize();renderMapPlaces();renderMapUser()},80);
+  fillPackCenters();refreshPackEst();renderPacks();
+}
+function setMapLayer(sat){
+  if(!mapObj)return;
+  if(sat){mapObj.removeLayer(mapRoads);mapSat.addTo(mapObj)}
+  else{mapObj.removeLayer(mapSat);mapRoads.addTo(mapObj)}
+  $('btnLayerRoads').classList.toggle('gold',!sat);
+  $('btnLayerSat').classList.toggle('gold',sat);
+}
+function renderMapPlaces(){
+  if(!mapObj||!mapPlaceLayer)return;
+  mapPlaceLayer.clearLayers();
+  (state.places||[]).forEach(p=>{
+    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'pinIcon',html:'<div class="pin">📍</div>',iconSize:[26,26],iconAnchor:[13,24]})})
+      .bindPopup(p.name).addTo(mapPlaceLayer);
+  });
+}
+function renderMapUser(){
+  if(!mapObj||!myLoc)return;
+  if(!mapUser){
+    mapUser=L.marker([myLoc.lat,myLoc.lng],{icon:L.divIcon({className:'meIcon',html:'<div class="meDot"></div>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(mapObj);
+  }else mapUser.setLatLng([myLoc.lat,myLoc.lng]);
+}
+function packCenterCoords(){
+  const v=$('packCenter').value;
+  if(v==='center'&&mapObj){const c=mapObj.getCenter();return{lat:c.lat,lng:c.lng,name:'مركز الخريطة'}}
+  if(v&&v[0]==='p'){const p=(state.places||[])[+v.slice(1)];if(p)return{lat:p.lat,lng:p.lng,name:p.name}}
+  if(myLoc)return{lat:myLoc.lat,lng:myLoc.lng,name:'موقعي الحالي'};
+  return{lat:22.38,lng:57.83,name:'أدم (افتراضي)'};
+}
+function fillPackCenters(){
+  const sel=$('packCenter');const cur=sel.value;
+  sel.innerHTML='';
+  const o1=document.createElement('option');o1.value='loc';o1.textContent='موقعي الحالي';sel.appendChild(o1);
+  const o2=document.createElement('option');o2.value='center';o2.textContent='مركز الخريطة الحالي';sel.appendChild(o2);
+  (state.places||[]).forEach((p,i)=>{const o=document.createElement('option');o.value='p'+i;o.textContent='مكان محفوظ: '+p.name;sel.appendChild(o)});
+  if(cur)sel.value=cur;
+}
+function refreshPackEst(){
+  if(!GN||!GN.packInfo)return;
+  const c=packCenterCoords();
+  try{
+    const info=JSON.parse(GN.packInfo(c.lat,c.lng,packRadius));
+    $('packEst').textContent='≈ '+info.tiles+' بلاطة (طبقتان) · ≈ '+info.mb+' ميغا · حول «'+c.name+'» بنطاق '+packRadius+' كم';
+  }catch(e){$('packEst').textContent=''}
+}
+function renderPacks(){
+  if(!GN||!GN.listPacks)return;
+  let data={};try{data=JSON.parse(GN.listPacks())}catch(e){}
+  const list=$('packsList');list.innerHTML='';
+  (data.packs||[]).forEach((pk,i)=>{
+    const row=document.createElement('div');row.className='row spread';
+    const d=new Date(pk.at);
+    row.innerHTML='<span class="grow">🗺️ '+pk.name+' — نطاق '+pk.radiusKm+' كم · '+pk.mb+' ميغا · '+d.toLocaleDateString('ar')+'</span>';
+    const del=document.createElement('button');del.className='btn small danger';del.textContent='حذف السجل';
+    del.onclick=()=>{GN.deletePack(i);renderPacks()};
+    row.appendChild(del);list.appendChild(row);
+  });
+  if(!(data.packs||[]).length)list.innerHTML='<p class="dim">لا حزم بعد — نزّل أول حزمة من الأعلى.</p>';
+  $('tilesSize').textContent='حجم الخرائط على هاتفك الآن: '+(data.tilesMB||0)+' ميغا';
+  const hs=$('packStatus');
+  if(hs)hs.textContent=(data.tilesMB>0)?('على هاتفك خرائط بحجم '+data.tilesMB+' ميغا — تعمل بلا إنترنت.'):'لا خرائط منزّلة بعد.';
+}
+window.__onPackProgress=p=>{
+  $('packProgWrap').classList.remove('hidden');
+  const pct=p.total?Math.round(p.done/p.total*100):0;
+  $('packProgBar').style.width=pct+'%';
+  $('packProgTxt').textContent='جارٍ التنزيل… '+p.done+' / '+p.total+' بلاطة ('+pct+'٪) — '+(p.layer==='sat'?'طبقة الأقمار':'طبقة الطرق');
+};
+window.__onPackDone=r=>{
+  packDownloading=false;
+  $('btnDownloadPack').disabled=false;
+  if(r.ok){
+    $('packProgTxt').textContent='✅ اكتمل التنزيل: '+r.tiles+' بلاطة · '+r.mb+' ميغا. الخريطة جاهزة بلا إنترنت.';
+    $('packProgBar').style.width='100%';
+  }else if(r.cancelled){
+    $('packProgTxt').textContent='أُوقف التنزيل — ما نزل يبقى محفوظًا ويُستكمل لاحقًا.';
+  }else{
+    $('packProgTxt').textContent='تعذّر إكمال التنزيل (انقطع الاتصال؟) — ما نزل محفوظ، أعد المحاولة لاستكمال الباقي.';
+  }
+  renderPacks();
+};
+$('btnOpenMap').onclick=openMap;
+$('btnOpenMap2').onclick=openMap;
+$('btnOpenMapDl').onclick=()=>{showPage('map');setTimeout(()=>{const el=$('packCard');if(el)el.scrollIntoView({behavior:'smooth'})},150)};
+$('btnBackFromMap').onclick=()=>showPage('home');
+$('btnLayerRoads').onclick=()=>setMapLayer(false);
+$('btnLayerSat').onclick=()=>setMapLayer(true);
+$('btnMyLoc').onclick=()=>{if(mapObj&&myLoc)mapObj.setView([myLoc.lat,myLoc.lng],Math.max(mapObj.getZoom(),12))};
+$('packCenter').addEventListener('change',refreshPackEst);
+document.querySelectorAll('.packR').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.packR').forEach(x=>x.classList.remove('sel'));
+  b.classList.add('sel');packRadius=+b.dataset.r;refreshPackEst();
+});
+$('btnDownloadPack').onclick=()=>{
+  if(packDownloading||!GN||!GN.downloadPack)return;
+  const c=packCenterCoords();
+  packDownloading=true;$('btnDownloadPack').disabled=true;
+  $('packProgWrap').classList.remove('hidden');
+  $('packProgBar').style.width='0%';
+  $('packProgTxt').textContent='بدأ التنزيل حول «'+c.name+'»…';
+  GN.downloadPack(c.name+' ('+packRadius+' كم)',c.lat,c.lng,packRadius);
+};
+$('btnCancelPack').onclick=()=>{if(GN&&GN.cancelPack)GN.cancelPack()};
+$('btnClearTiles').onclick=()=>{
+  if(!confirm('مسح كل الخرائط المنزّلة وسجلات الحزم؟'))return;
+  GN.clearTiles();renderPacks();
+  if(mapObj){mapObj.removeLayer(mapRoads);mapRoads.addTo(mapObj)}
+};

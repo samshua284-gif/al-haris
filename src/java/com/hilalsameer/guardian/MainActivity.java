@@ -15,9 +15,19 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -45,7 +55,28 @@ public class MainActivity extends Activity {
         WebSettings ws = web.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) {
+                String u = req.getUrl().toString();
+                if (u.startsWith("https://tiles.local/")) {
+                    try {
+                        java.util.List<String> p = req.getUrl().getPathSegments();
+                        String layer = p.get(0);
+                        String ext = layer.equals("sat") ? "jpg" : "png";
+                        File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
+                                p.get(1) + "/" + p.get(2) + "/" + p.get(3) + "." + ext);
+                        if (f.exists() && f.length() > 0)
+                            return new WebResourceResponse(ext.equals("jpg") ? "image/jpeg" : "image/png",
+                                    null, new FileInputStream(f));
+                    } catch (Exception ignored) {}
+                    byte[] empty = android.util.Base64.decode(
+                            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+                            android.util.Base64.DEFAULT);
+                    return new WebResourceResponse("image/png", null, new ByteArrayInputStream(empty));
+                }
+                return super.shouldInterceptRequest(v, req);
+            }
+        });
         web.addJavascriptInterface(new Bridge(), "GN");
         setContentView(web);
         web.loadUrl("file:///android_asset/www/index.html");
@@ -192,5 +223,179 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)); }
             catch (Exception e) { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
         }
+
+        /* ---------- offline map packs ---------- */
+
+        @JavascriptInterface public String packInfo(double lat, double lng, int radiusKm) {
+            try {
+                int tiles = 0;
+                for (int z = 7; z <= 13; z++) {
+                    int[] r = tileRange(lat, lng, radiusKm, z);
+                    tiles += (r[1] - r[0] + 1) * (r[3] - r[2] + 1);
+                }
+                JSONObject o = new JSONObject();
+                o.put("tilesPerLayer", tiles);
+                o.put("tiles", tiles * 2);
+                o.put("mb", Math.round((tiles * 13000L + tiles * 22000L) / 104857.6) / 10.0);
+                return o.toString();
+            } catch (Exception e) { return "{}"; }
+        }
+
+        @JavascriptInterface public void downloadPack(final String name, final double lat,
+                                                       final double lng, final int radiusKm) {
+            if (packThread != null && packThread.isAlive()) return;
+            packCancel = false;
+            packThread = new Thread(() -> {
+                String[] layers = { "roads", "sat" };
+                int total = 0;
+                for (int z = 7; z <= 13; z++) {
+                    int[] r = tileRange(lat, lng, radiusKm, z);
+                    total += (r[1] - r[0] + 1) * (r[3] - r[2] + 1);
+                }
+                total *= 2;
+                int done = 0, fails = 0, consecFails = 0;
+                long bytes = 0;
+                boolean aborted = false;
+                try {
+                    for (String layer : layers) {
+                        String ext = layer.equals("sat") ? "jpg" : "png";
+                        for (int z = 7; z <= 13 && !packCancel && !aborted; z++) {
+                            int[] r = tileRange(lat, lng, radiusKm, z);
+                            for (int x = r[0]; x <= r[1] && !packCancel && !aborted; x++) {
+                                for (int y = r[2]; y <= r[3]; y++) {
+                                    if (packCancel) break;
+                                    File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
+                                            z + "/" + x + "/" + y + "." + ext);
+                                    if (f.exists() && f.length() > 0) { done++; continue; }
+                                    String url = layer.equals("sat")
+                                            ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x
+                                            : "https://tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
+                                    long got = fetchTile(url, f);
+                                    if (got > 0) { bytes += got; consecFails = 0; }
+                                    else { fails++; if (++consecFails >= 30) { aborted = true; break; } }
+                                    done++;
+                                    if (done % 10 == 0) {
+                                        final int d = done, t = total;
+                                        final String ly = layer;
+                                        pushJs("window.__onPackProgress&&window.__onPackProgress({done:" + d
+                                                + ",total:" + t + ",layer:'" + ly + "'})");
+                                    }
+                                    try { Thread.sleep(layer.equals("sat") ? 30 : 60); } catch (Exception ignored) {}
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+                JSONObject o = new JSONObject();
+                try {
+                    o.put("ok", !packCancel && !aborted);
+                    o.put("cancelled", packCancel);
+                    o.put("tiles", done);
+                    o.put("fails", fails);
+                    if (!packCancel && !aborted) {
+                        android.content.SharedPreferences sp = G.p(MainActivity.this);
+                        JSONArray packs = new JSONArray(sp.getString("packs", "[]"));
+                        JSONObject pk = new JSONObject();
+                        pk.put("name", name); pk.put("lat", lat); pk.put("lng", lng);
+                        pk.put("radiusKm", radiusKm); pk.put("at", System.currentTimeMillis());
+                        pk.put("mb", Math.round(bytes / 104857.6) / 10.0);
+                        packs.put(pk);
+                        sp.edit().putString("packs", packs.toString()).apply();
+                        o.put("mb", Math.round(bytes / 104857.6) / 10.0);
+                    }
+                } catch (Exception ignored) {}
+                pushJs("window.__onPackDone&&window.__onPackDone(" + o.toString() + ")");
+            });
+            packThread.start();
+        }
+
+        @JavascriptInterface public void cancelPack() { packCancel = true; }
+
+        @JavascriptInterface public String listPacks() {
+            try {
+                JSONObject o = new JSONObject();
+                android.content.SharedPreferences sp = G.p(MainActivity.this);
+                o.put("packs", new JSONArray(sp.getString("packs", "[]")));
+                o.put("tilesMB", Math.round(dirSize(new File(getFilesDir(), "tiles")) / 104857.6) / 10.0);
+                return o.toString();
+            } catch (Exception e) { return "{}"; }
+        }
+
+        @JavascriptInterface public void deletePack(int idx) {
+            try {
+                android.content.SharedPreferences sp = G.p(MainActivity.this);
+                JSONArray packs = new JSONArray(sp.getString("packs", "[]"));
+                JSONArray keep = new JSONArray();
+                for (int i = 0; i < packs.length(); i++) if (i != idx) keep.put(packs.get(i));
+                sp.edit().putString("packs", keep.toString()).apply();
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface public void clearTiles() {
+            deleteRecursive(new File(getFilesDir(), "tiles"));
+            G.p(MainActivity.this).edit().putString("packs", "[]").apply();
+        }
+    }
+
+    /* ---------- map helpers ---------- */
+    private volatile boolean packCancel = false;
+    private Thread packThread = null;
+
+    private void pushJs(final String js) {
+        if (web == null) return;
+        web.post(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) {} });
+    }
+
+    static int[] tileRange(double lat, double lng, double rKm, int z) {
+        double dLat = rKm / 111.32;
+        double dLng = rKm / (111.32 * Math.cos(Math.toRadians(lat)));
+        int n = 1 << z;
+        int x0 = (int) Math.floor((lng - dLng + 180) / 360.0 * n);
+        int x1 = (int) Math.floor((lng + dLng + 180) / 360.0 * n);
+        int y0 = (int) Math.floor((1 - Math.log(Math.tan(Math.toRadians(lat + dLat))
+                + 1 / Math.cos(Math.toRadians(lat + dLat))) / Math.PI) / 2 * n);
+        int y1 = (int) Math.floor((1 - Math.log(Math.tan(Math.toRadians(lat - dLat))
+                + 1 / Math.cos(Math.toRadians(lat - dLat))) / Math.PI) / 2 * n);
+        x0 = Math.max(0, Math.min(n - 1, x0)); x1 = Math.max(0, Math.min(n - 1, x1));
+        y0 = Math.max(0, Math.min(n - 1, y0)); y1 = Math.max(0, Math.min(n - 1, y1));
+        return new int[] { x0, x1, y0, y1 };
+    }
+
+    private long fetchTile(String url, File dest) {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(url).openConnection();
+            c.setConnectTimeout(12000); c.setReadTimeout(12000);
+            c.setRequestProperty("User-Agent", "AlHaris-Guardian/1.22 (free offline safety maps)");
+            if (c.getResponseCode() != 200) return -1;
+            dest.getParentFile().mkdirs();
+            File tmp = new File(dest.getPath() + ".tmp");
+            InputStream in = c.getInputStream();
+            FileOutputStream out = new FileOutputStream(tmp);
+            byte[] buf = new byte[8192]; int r; long total = 0;
+            while ((r = in.read(buf)) > 0) { out.write(buf, 0, r); total += r; }
+            out.close(); in.close();
+            if (total <= 0 || !tmp.renameTo(dest)) { tmp.delete(); return -1; }
+            return total;
+        } catch (Exception e) { return -1; }
+        finally { if (c != null) c.disconnect(); }
+    }
+
+    static long dirSize(File f) {
+        if (f == null || !f.exists()) return 0;
+        if (f.isFile()) return f.length();
+        long s = 0;
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) s += dirSize(k);
+        return s;
+    }
+
+    static void deleteRecursive(File f) {
+        if (f == null || !f.exists()) return;
+        if (f.isDirectory()) {
+            File[] kids = f.listFiles();
+            if (kids != null) for (File k : kids) deleteRecursive(k);
+        }
+        f.delete();
     }
 }

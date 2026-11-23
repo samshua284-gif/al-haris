@@ -37,6 +37,15 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #caravan{position:absolute;inset:0}
 .camel{position:absolute;left:0;bottom:7px;background-repeat:no-repeat;will-change:transform,background-position;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
 .heroBar{position:absolute;bottom:0;right:0;left:0;padding:26px 15px 12px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(0deg,rgba(4,6,13,.66),transparent);color:#dbe6f5;font-size:13.5px}
+#mapView{height:56vh;min-height:320px;border-radius:14px;background:#0d1420;direction:ltr;z-index:0}
+.leaflet-container{font-family:inherit;background:#0d1420}
+.pin{font-size:22px;line-height:1;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
+.pinIcon,.meIcon{background:none;border:none}
+.meDot{width:16px;height:16px;border-radius:50%;background:#3fa9ff;border:3px solid #fff;box-shadow:0 0 10px rgba(63,169,255,.85)}
+.prog{height:10px;background:#16233c;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+#packProgBar{height:100%;width:0;background:linear-gradient(90deg,#e8b84b,#57e389);transition:width .3s}
+.packR.sel{background:linear-gradient(180deg,#8a6a1d,#6d5312);border-color:#e8b84b;color:#ffeeb8;font-weight:700}
+.mapcard{padding-bottom:12px}
 .dim{color:#93a3bd;font-size:13px;line-height:1.65}
 .center{text-align:center}
 .row{display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap}
