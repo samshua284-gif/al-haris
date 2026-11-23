@@ -135,6 +135,16 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface public String getSignal() { return G.signalJson(MainActivity.this).toString(); }
 
+        @JavascriptInterface public void requestLocation() {
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                        || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(new String[] { Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION }, 7);
+                else startWatcher();
+            });
+        }
+
         @JavascriptInterface public String getLocation() {
             Location l = G.lastFix(MainActivity.this);
             if (l == null) return "{}";

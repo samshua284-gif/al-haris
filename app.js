@@ -121,7 +121,7 @@ function refresh(){
   $('netState').textContent=(sig.carrier?('المشغّل: '+sig.carrier+' • '):'')+(sig.service?'الخدمة متاحة الآن ✓':'لا خدمة الآن — الحارس يراقب')+(typeof sig.battery==='number'&&sig.battery>=0?(' • البطارية '+sig.battery+'%'):'');
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();
 }
-window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser()};
+window.__onLoc=l=>{myLoc=l;renderArrow();renderPlaces();renderMapUser();if(curPage==='map')refreshPackEst()};
 
 /* ---------- actions ---------- */
 $('btnAddPlace').onclick=()=>{
@@ -281,7 +281,7 @@ function packCenterCoords(){
   if(v==='center'&&mapObj){const c=mapObj.getCenter();return{lat:c.lat,lng:c.lng,name:'مركز الخريطة'}}
   if(v&&v[0]==='p'){const p=(state.places||[])[+v.slice(1)];if(p)return{lat:p.lat,lng:p.lng,name:p.name}}
   if(myLoc)return{lat:myLoc.lat,lng:myLoc.lng,name:'موقعي الحالي'};
-  return{lat:22.38,lng:57.83,name:'أدم (افتراضي)'};
+  return null;
 }
 function fillPackCenters(){
   const sel=$('packCenter');const cur=sel.value;
@@ -294,9 +294,15 @@ function fillPackCenters(){
 function refreshPackEst(){
   if(!GN||!GN.packInfo)return;
   const c=packCenterCoords();
+  if(!c){
+    $('packEst').textContent='لم يُحدَّد موقعك بعد — فعّل GPS وامنح التطبيق إذن الموقع وانتظر ثوانٍ حتى تظهر نقطتك، أو اختر «مركز الخريطة» وحرّك الخريطة إلى أي بقعة ونزّل حولها (يعمل بلا GPS تمامًا).';
+    if(!packDownloading)$('btnDownloadPack').disabled=true;
+    return;
+  }
+  if(!packDownloading)$('btnDownloadPack').disabled=false;
   try{
     const info=JSON.parse(GN.packInfo(c.lat,c.lng,packRadius));
-    $('packEst').textContent='≈ '+info.tiles+' بلاطة (طبقتان) · ≈ '+info.mb+' ميغا · حول «'+c.name+'» بنطاق '+packRadius+' كم';
+    $('packEst').textContent='≈ '+info.tiles+' بلاطة (طبقتان) · ≈ '+info.mb+' ميغا · المركز: '+c.name+' · النطاق '+packRadius+' كم';
   }catch(e){$('packEst').textContent=''}
 }
 function renderPacks(){
@@ -341,7 +347,10 @@ $('btnOpenMapDl').onclick=()=>{showPage('map');setTimeout(()=>{const el=$('packC
 $('btnBackFromMap').onclick=()=>showPage('home');
 $('btnLayerRoads').onclick=()=>setMapLayer(false);
 $('btnLayerSat').onclick=()=>setMapLayer(true);
-$('btnMyLoc').onclick=()=>{if(mapObj&&myLoc)mapObj.setView([myLoc.lat,myLoc.lng],Math.max(mapObj.getZoom(),12))};
+$('btnMyLoc').onclick=()=>{
+  if(!myLoc){if(GN&&GN.requestLocation)GN.requestLocation();alert('لا إشارة GPS بعد: امنح التطبيق إذن الموقع وفعّل GPS ثم انتظر ثوانٍ.');return}
+  if(mapObj)mapObj.setView([myLoc.lat,myLoc.lng],Math.max(mapObj.getZoom(),12));
+};
 $('packCenter').addEventListener('change',refreshPackEst);
 document.querySelectorAll('.packR').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.packR').forEach(x=>x.classList.remove('sel'));
@@ -350,6 +359,7 @@ document.querySelectorAll('.packR').forEach(b=>b.onclick=()=>{
 $('btnDownloadPack').onclick=()=>{
   if(packDownloading||!GN||!GN.downloadPack)return;
   const c=packCenterCoords();
+  if(!c){alert('لا موقع معروف بعد: فعّل GPS وانتظر ثوانٍ، أو بدّل المركز إلى «مركز الخريطة».');return}
   packDownloading=true;$('btnDownloadPack').disabled=true;
   $('packProgWrap').classList.remove('hidden');
   $('packProgBar').style.width='0%';
