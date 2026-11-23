@@ -169,7 +169,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>show
 
 /* ---------- caravan: painted caravan, 2-pose walk cycle, endless groups of 4 ---------- */
 const wrap=$('sceneWrap'),layer=$('caravan');
-let motionUser=true,camelEls=[],SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
+let motionUser=true,camelEls=[],camelShadows=[],SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
   $('sceneBg').src=ART.scene;
@@ -181,6 +181,8 @@ function caravanInit(){
     d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
     d.style.backgroundPosition=(-(i%ART.cells)*CDW)+'px 0px';
     layer.appendChild(d);camelEls.push(d);
+    const sh=document.createElement('div');sh.className='cshadow';sh.style.width=Math.round(CDW*0.82)+'px';
+    layer.appendChild(sh);camelShadows.push(sh);
   }
   const SP=CDW+6,GG=90;
   for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
@@ -211,10 +213,10 @@ function caravanLoop(ts){
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
     const ph=(SHIFT+i*11)/stridePx;
     const fr=Math.floor(ph*2)%ART.frames;
-    const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.8:0;
-    const sway=motionWanted()?Math.sin(ph*2*Math.PI)*1.1:0;
-    d.style.transform='translate3d('+x+'px,'+bob+'px,0) rotate('+sway+'deg)';
+    const bob=motionWanted()?Math.sin(ph*2*Math.PI)*0.4:0;
+    d.style.transform='translate3d('+x+'px,'+bob+'px,0)';
     d.style.backgroundPosition=(-((fr*ART.cells)+(i%ART.cells))*CDW)+'px 0px';
+    camelShadows[i].style.transform='translate3d('+(x+CDW*0.09)+'px,0,0)';
   });
 }
 caravanInit();
