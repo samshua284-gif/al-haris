@@ -172,8 +172,7 @@ const wrap=$('sceneWrap'),layer=$('caravan');
 let motionUser=true,camelEls=[],camelShadows=[],printPool=[],lastStep=[],printIdx=0,SLOTS=[],TRACK=0,CDW=0,CH=40,SHIFT=0,lastTs=0;
 function caravanInit(){
   if(!ART)return;
-  $('sceneBg').src=ART.scene;
-  const fg=$('sceneFg');fg.style.backgroundImage='url('+ART.scene+')';fg.style.webkitMaskImage='url('+ART.fgmask+')';fg.style.maskImage='url('+ART.fgmask+')';
+  $('sceneBg').src=ART.scene;$('sceneFg').src=ART.fgtree;
   const k=CH/ART.cellH;CDW=Math.round(ART.cellW*k);
   for(let i=0;i<8;i++){
     const d=document.createElement('div');d.className='camel';
@@ -188,7 +187,7 @@ function caravanInit(){
   const SP=CDW+6,GG=90;
   for(let g=0;g<2;g++)for(let i=0;i<4;i++)SLOTS.push(g*(4*SP+GG)+i*SP);
   TRACK=2*(4*SP+GG);
-  for(let j=0;j<26;j++){const p=document.createElement('div');p.className='print';p.style.opacity='0';layer.appendChild(p);printPool.push({el:p,born:-1e9})}
+  for(let j=0;j<30;j++){const p=document.createElement('div');p.className='print';p.style.opacity='0';layer.appendChild(p);const u=document.createElement('div');u.className='puff';u.style.opacity='0';layer.appendChild(u);printPool.push({el:p,puff:u,born:-1e9,fx:0})}
 }
 function motionWanted(){
   if(!motionUser)return false;
@@ -224,11 +223,14 @@ function caravanLoop(ts){
     if(motionWanted()&&sIdx!==lastStep[i]&&printPool.length){
       lastStep[i]=sIdx;
       const pr=printPool[printIdx++%printPool.length];pr.born=ts;
-      const fx=x+CDW*0.30+(sIdx%2)*CDW*0.28;
-      pr.el.style.transform='translate3d('+fx+'px,0,0) rotate('+((sIdx%2)?-7:7)+'deg)';
+      pr.fx=x+CDW*0.30+(sIdx%2)*CDW*0.28;
+      pr.el.style.transform='translate3d('+pr.fx+'px,0,0) rotate('+((sIdx%2)?-7:7)+'deg)';
     }
   });
-  printPool.forEach(pr=>{const age=(ts-pr.born)/1000;pr.el.style.opacity=age<1?String((1-age)*0.55):'0'});
+  printPool.forEach(pr=>{const age=(ts-pr.born)/1000;
+    if(age<1){pr.el.style.opacity=String((1-age)*0.8);pr.puff.style.opacity=String((1-age)*0.5);pr.puff.style.transform='translate3d('+(pr.fx-5)+'px,'+(-3*age)+'px,0) scale('+(1+0.6*age)+')'}
+    else{pr.el.style.opacity='0';pr.puff.style.opacity='0'}
+  });
 }
 caravanInit();
 requestAnimationFrame(caravanLoop);
