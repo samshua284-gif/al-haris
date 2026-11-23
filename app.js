@@ -160,6 +160,7 @@ function caravanInit(){
     d.style.width=CDW+'px';d.style.height=CH+'px';
     d.style.backgroundImage='url('+ART.camels+')';
     d.style.backgroundSize=(ART.stripW*k)+'px '+CH+'px';
+    d.style.backgroundPosition=(-(i%ART.cells)*CDW)+'px 0px';
     layer.appendChild(d);camelEls.push(d);
   }
   const SP=CDW+8,GG=150;
@@ -186,11 +187,11 @@ function caravanLoop(ts){
   const dt=Math.min(50,ts-(lastTs||ts));lastTs=ts;
   const on=motionWanted();wrap.classList.toggle('frozen',!on);
   if(on&&dt>0)SHIFT=(SHIFT+11*dt/1000)%TRACK;
-  const fr=Math.floor(ts/190)%2;
   camelEls.forEach((d,i)=>{
     let x=((SLOTS[i]-SHIFT)%TRACK+TRACK)%TRACK-CDW-24;
-    d.style.transform='translate3d('+x+'px,'+(motionWanted()?Math.sin(ts/380+i*1.3)*0.8:0)+'px,0)';
-    d.style.backgroundPosition=(-fr*CDW)+'px 0px';
+    const bob=motionWanted()?Math.sin(ts/380+i*1.3)*0.8:0;
+    const tilt=motionWanted()?Math.sin(ts/900+i*2.1)*0.6:0;
+    d.style.transform='translate3d('+x+'px,'+bob+'px,0) rotate('+tilt+'deg)';
   });
 }
 caravanInit();
