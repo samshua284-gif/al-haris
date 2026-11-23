@@ -223,7 +223,7 @@ function caravanLoop(ts){
     if(motionWanted()&&sIdx!==lastStep[i]&&printPool.length){
       lastStep[i]=sIdx;
       const pr=printPool[printIdx++%printPool.length];pr.born=ts;
-      pr.fx=x+CDW*0.30+(sIdx%2)*CDW*0.28;
+      pr.fx=x+CDW*0.42+(sIdx%2)*4;
       pr.el.style.transform='translate3d('+pr.fx+'px,0,0) rotate('+((sIdx%2)?-7:7)+'deg)';
     }
   });

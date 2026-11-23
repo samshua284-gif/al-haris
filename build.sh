@@ -16,6 +16,6 @@ cp build/app-unsigned.apk build/app.apk
 (cd build/dex && zip -q ../app.apk classes.dex)
 "$BT/zipalign" -f -p 4 build/app.apk build/app-aligned.apk
 "$BT/apksigner" sign --ks android/guardian-release.keystore --ks-pass "pass:$PASS" --key-pass "pass:$PASS" \
-    --out guardian-1.12.apk build/app-aligned.apk
-"$BT/apksigner" verify --print-certs guardian-1.12.apk | head -3
-ls -la guardian-1.12.apk
+    --out guardian-1.13.apk build/app-aligned.apk
+"$BT/apksigner" verify --print-certs guardian-1.13.apk | head -3
+ls -la guardian-1.13.apk
