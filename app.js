@@ -280,7 +280,7 @@ function packCenterCoords(){
   const v=$('packCenter').value;
   if(v==='center'&&mapObj){const c=mapObj.getCenter();return{lat:c.lat,lng:c.lng,name:'مركز الخريطة'}}
   if(v&&v[0]==='p'){const p=(state.places||[])[+v.slice(1)];if(p)return{lat:p.lat,lng:p.lng,name:p.name}}
-  if(myLoc)return{lat:myLoc.lat,lng:myLoc.lng,name:'موقعي الحالي'};
+  if(myLoc)return{lat:myLoc.lat,lng:myLoc.lng,name:fixAgeMs()<180000?'موقعي الحالي':'آخر موقع معروف ('+fmtAge(fixAgeMs())+')'};
   return null;
 }
 function fillPackCenters(){
@@ -382,11 +382,22 @@ $('btnDiscardPack').onclick=()=>{
   if(GN&&GN.cancelPackDiscard)GN.cancelPackDiscard();
   if(!packDownloading){partialTiles=0;updatePackButtons();$('packProgTxt').textContent='أُلغي التنزيل وحُذفت بلاطات هذه الجلسة.';$('packProgBar').style.width='0%';setTimeout(renderPacks,400)}
 };
+function fixAgeMs(){return (myLoc&&myLoc.at)?(Date.now()-myLoc.at):Infinity}
+function fmtAge(ms){
+  const s=Math.round(ms/1000);
+  if(s<90)return'الآن تقريبًا';
+  const m=Math.round(s/60);if(m<60)return'قبل '+m+' دقيقة';
+  const h=Math.round(m/60);if(h<24)return'قبل '+h+' ساعة';
+  return'قبل '+Math.round(h/24)+' يوم';
+}
 function renderLocStatus(){
   const el=$('locStatus');if(!el)return;
-  if(myLoc){
-    el.textContent='📍 موقعك معروف الآن'+(myLoc.acc?' — دقة ±'+Math.round(myLoc.acc)+'م':'');
+  if(myLoc&&fixAgeMs()<180000){
+    el.textContent='📍 موقعك الآن (قراءة حية)'+(myLoc.acc?' — دقة ±'+Math.round(myLoc.acc)+'م':'');
     $('btnLocSettings').classList.add('hidden');
+  }else if(myLoc){
+    el.textContent='📍 آخر موقع يتذكّره الهاتف — '+fmtAge(fixAgeMs())+(myLoc.acc?'، دقة ±'+Math.round(myLoc.acc)+'م':'')+' — قد لا يكون مكانك الحالي؛ فعّل GPS لتحديثه.';
+    $('btnLocSettings').classList.remove('hidden');
   }else{
     el.textContent='📍 موقعك غير معروف بعد — التطبيق لا يستطيع تشغيل GPS بنفسه؛ فعّله من إعدادات الهاتف وامنح التطبيق إذن الموقع.';
     $('btnLocSettings').classList.remove('hidden');
