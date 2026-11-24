@@ -24,6 +24,7 @@
         <p class="tag">سلامة صحراوية — يعمل بلا إنترنت</p>
       </div>
     </div>
+    <button id="btnLang" class="langBtn" title="Language / اللغة">🌐 English</button>
   </header>
 
   <section class="card scenecard">
@@ -33,7 +34,7 @@
       </div>
     <button id="btnSalawat" class="btn small">🔔 الصلاة: تعمل</button>
     <button id="btnAnim" class="btn small">إيقاف الحركة</button>
-    <div id="salawatBanner" title="اختر مدة التذكير"><span class="sal-text">اللهم صلِ وسلّم على سيّدنا محمد</span></div>
+    <div id="salawatBanner" data-nolang title="اختر مدة التذكير"><span class="sal-text">اللهم صلِ وسلّم على سيّدنا محمد</span></div>
     <div id="salawatBar"><button id="salawatFace">٥ د ▾</button><div id="salawatOpts"><button class="sal-opt" data-min="5">٥ د</button><button class="sal-opt" data-min="10">١٠ د</button><button class="sal-opt" data-min="15">١٥ د</button><button class="sal-opt" data-min="30">٣٠ د</button></div></div>
     </div>
     <svg class="threads" viewBox="0 0 432 152" preserveAspectRatio="none" aria-hidden="true">
@@ -146,7 +147,7 @@
     <div id="placesList"></div>
     <p class="dim">اضغط أي مكان محفوظ لعرضه على الخريطة.</p>
     <div class="row">
-      <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)">
+      <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)" data-ph-ar="اسم المكان هنا (مخيم، بئر، محطة…)" data-ph-en="Place name here (camp, well, station…)">
       <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
     </div>
   </section>
@@ -210,8 +211,8 @@
     <div class="row">
       <span class="dim">النطاق:</span>
       <button class="btn small packR" data-r="25">٢٥ كم</button>
-      <button class="btn small packR sel" data-r="50">٥٠ كم</button>
-      <button class="btn small packR" data-r="500">٥٠٠ كم</button>
+      <button class="btn small packR" data-r="50">٥٠ كم</button>
+      <button class="btn small packR sel" data-r="500">٥٠٠ كم</button>
     </div>
     <p class="dim">حزمة ٥٠٠ كم «ذكية»: أدقّ التفاصيل قرب المركز، وتقلّ تدريجيًا كلما ابتعدت — فتبقى بحجم معقول بدل أكثر من غيغا.</p>
     <p class="dim" id="packEst">…</p>
@@ -228,6 +229,11 @@
 
   <section class="card">
     <h2>حزمي المنزّلة</h2>
+    <div id="updProgWrap" class="hidden">
+      <div class="prog"><div id="updProgBar"></div></div>
+      <p class="dim" id="updProgTxt"></p>
+      <button class="btn small danger hidden" id="btnCancelUpdate">إيقاف التحديث</button>
+    </div>
     <div id="packsList"></div>
     <p class="dim" id="tilesSize"></p>
     <button class="btn danger small" id="btnClearTiles">مسح كل الخرائط المنزّلة</button>
@@ -251,18 +257,18 @@
 <main id="page-setup" class="page">
   <section class="card">
     <h2>الإعداد</h2>
-    <label>اسمك<input id="inName" class="inp" placeholder="الاسم الكامل"></label>
+    <label>اسمك<input id="inName" class="inp" placeholder="الاسم الكامل" data-ph-ar="الاسم الكامل" data-ph-en="Full name"></label>
     <label>أرقام الاستغاثة (حتى ٣، واحد في كل سطر)<textarea id="inNumbers" class="inp" rows="3" placeholder="+968 …"></textarea></label>
     <label>نص الرسالة — المتغيرات: {name} {loc} {bat} {time}
-      <textarea id="inMsg" class="inp" rows="3"></textarea></label>
-    <label>نص رسالة الطمأنينة<textarea id="inOkMsg" class="inp" rows="2"></textarea></label>
+      <textarea dir="auto" id="inMsg" class="inp" rows="3"></textarea></label>
+    <label>نص رسالة الطمأنينة<textarea dir="auto" id="inOkMsg" class="inp" rows="2"></textarea></label>
     <button class="btn gold" id="btnSaveSetup">حفظ الإعداد</button>
     <p class="autohint">اكتب اسمك ورقم الهاتف فقط، والباقي — موقعك وبطاريتك والوقت — يُكتب تلقائيًا عند ضغط زر الاستغاثة.</p>
     <button class="btn danger" id="btnResetSetup">إعادة الضبط — مسح ما كتبتُه بيدي</button>
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.125 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.141 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
 <main id="page-hunt" class="page">
@@ -302,6 +308,15 @@
   </button>
 </nav>
 
+<div id="langDlg" class="langDlgWrap hidden" data-nolang>
+  <div class="langDlg">
+    <button id="langClose" class="langClose" aria-label="Close">✕</button>
+    <div class="langDlgTitle">🌐 اللغة · Language</div>
+    <p class="langDlgSub">اختر لغة التطبيق · Choose the app language</p>
+    <button id="langOptAr" class="langOpt">العربية <span class="langTick" id="tickAr">✓</span></button>
+    <button id="langOptEn" class="langOpt">English <span class="langTick" id="tickEn">✓</span></button>
+  </div>
+</div>
 <script src="art.js"></script>
 <script src="maplibre-gl.js"></script>
 <script src="style.js"></script>

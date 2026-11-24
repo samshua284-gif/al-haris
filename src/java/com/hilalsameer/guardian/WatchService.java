@@ -87,7 +87,7 @@ public class WatchService extends Service {
         G.cancelSalawatAlarm(this);
         h.postDelayed(salawatTick, 60000);
         createChannel();
-        startForeground(7, buildNotification("الحارس يراقب"));
+        startForeground(7, buildNotification(en() ? "The Guardian is watching" : "الحارس يراقب"));
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
         try {
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 30000, 10, locListener, Looper.getMainLooper());
@@ -117,11 +117,17 @@ public class WatchService extends Service {
         }
     }
 
+    /* 1.138: the persistent notification follows the UI language. */
+    private boolean en() {
+        try { return "en".equals(G.p(this).getString("uiLang", "ar")); }
+        catch (Exception e) { return false; }
+    }
+
     private Notification buildNotification(String text) {
         PendingIntent pi = PendingIntent.getActivity(this, 0,
             new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, "guard")
-            .setContentTitle("الحارس")
+            .setContentTitle(en() ? "The Guardian" : "الحارس")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pi)
@@ -130,10 +136,11 @@ public class WatchService extends Service {
 
     private void updateNotification() {
         String t;
-        if (G.armed(this) && !G.delivered(this)) t = "الاستغاثة مُسلَّحة — أراقب الإشارة";
-        else if (G.armed(this) && G.delivered(this)) t = "وصلت رسالة الاستغاثة ✓";
-        else if (G.safePending(this)) t = "رسالة الطمأنة تنتظر إشارة";
-        else t = "الحارس يراقب";
+        boolean en = en();
+        if (G.armed(this) && !G.delivered(this)) t = en ? "SOS armed — watching the signal" : "الاستغاثة مُسلَّحة — أراقب الإشارة";
+        else if (G.armed(this) && G.delivered(this)) t = en ? "The SOS message arrived ✓" : "وصلت رسالة الاستغاثة ✓";
+        else if (G.safePending(this)) t = en ? "The I-am-fine message is waiting for signal" : "رسالة الطمأنة تنتظر إشارة";
+        else t = en ? "The Guardian is watching" : "الحارس يراقب";
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.notify(7, buildNotification(t));
     }

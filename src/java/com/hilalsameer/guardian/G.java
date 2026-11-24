@@ -32,18 +32,32 @@ public class G {
     }
 
     public static String name(Context c) { return p(c).getString("name", ""); }
+    /* 1.139: the DEFAULT message templates exist in both app languages
+       and follow uiLang — Hilal switched to English and the SOS still
+       arrived in Arabic. A stored text equal to EITHER default counts
+       as "the default" (so saving an untouched field never freezes a
+       language); a text he wrote himself is his, and is used as-is in
+       both languages. */
+    public static final String TPL_AR = "SOS! {name} يحتاج مساعدة عاجلة. موقعي: {loc} البطارية {bat}% الساعة {time}. اتصلوا بـ9999";
+    public static final String TPL_EN = "SOS! {name} needs urgent help. My location: {loc} Battery {bat}% Time {time}. Call 9999";
+    public static final String SAFE_AR = "{name}: أنا بخير، أُلغيت الاستغاثة. شكرًا لكم.";
+    public static final String SAFE_EN = "{name}: I am fine, the SOS is cancelled. Thank you.";
+    public static boolean en(Context c) {
+        try { return "en".equals(p(c).getString("uiLang", "ar")); }
+        catch (Exception e) { return false; }
+    }
     public static String template(Context c) {
         // An emptied field must never produce an empty SOS (1.51): fall back.
         String t = p(c).getString("template", "");
-        return (t == null || t.trim().isEmpty())
-            ? "SOS! {name} يحتاج مساعدة عاجلة. موقعي: {loc} البطارية {bat}% الساعة {time}. اتصلوا بـ9999"
-            : t;
+        if (t == null || t.trim().isEmpty() || t.equals(TPL_AR) || t.equals(TPL_EN))
+            return en(c) ? TPL_EN : TPL_AR;
+        return t;
     }
     public static String safeTemplate(Context c) {
         String t = p(c).getString("safe_template", "");
-        return (t == null || t.trim().isEmpty())
-            ? "{name}: أنا بخير، أُلغيت الاستغاثة. شكرًا لكم."
-            : t;
+        if (t == null || t.trim().isEmpty() || t.equals(SAFE_AR) || t.equals(SAFE_EN))
+            return en(c) ? SAFE_EN : SAFE_AR;
+        return t;
     }
     public static List<String> recipients(Context c) {
         List<String> out = new ArrayList<>();
@@ -173,8 +187,11 @@ public class G {
                   .replace("{loc}", iso(loc))
                   .replace("{bat}", iso(batS))
                   .replace("{time}", iso(time));
-        if (out.codePoints().anyMatch(cp -> cp >= 0x0600 && cp <= 0x06FF))
-            out = "\u200F" + out;
+        // 1.139: paragraph direction follows the TEMPLATE's language,
+        // not the substituted values — an English SOS carrying an Arabic
+        // name (isolated above) must still read left-to-right.
+        boolean tplAr = tpl.codePoints().anyMatch(cp -> cp >= 0x0600 && cp <= 0x06FF);
+        out = (tplAr ? "\u200F" : "\u200E") + out;
         return out;
     }
 

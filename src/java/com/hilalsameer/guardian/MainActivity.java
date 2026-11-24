@@ -36,6 +36,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
+    /* 1.138: UI language for the native JS-dialog buttons. */
+    boolean uiEn() {
+        try { return "en".equals(G.p(this).getString("uiLang", "ar")); }
+        catch (Exception e) { return false; }
+    }
+
     private WebView web;
     private LocationManager lm;
     private Ringtone alarm;
@@ -66,7 +72,7 @@ public class MainActivity extends Activity {
                     final android.webkit.JsResult res) {
                 new android.app.AlertDialog.Builder(MainActivity.this)
                         .setMessage(msg)
-                        .setPositiveButton("حسنًا", (d, w) -> res.confirm())
+                        .setPositiveButton(uiEn() ? "OK" : "حسنًا", (d, w) -> res.confirm())
                         .setOnCancelListener(d -> res.confirm())
                         .show();
                 return true;
@@ -75,8 +81,8 @@ public class MainActivity extends Activity {
                     final android.webkit.JsResult res) {
                 new android.app.AlertDialog.Builder(MainActivity.this)
                         .setMessage(msg)
-                        .setPositiveButton("نعم", (d, w) -> res.confirm())
-                        .setNegativeButton("لا", (d, w) -> res.cancel())
+                        .setPositiveButton(uiEn() ? "Yes" : "نعم", (d, w) -> res.confirm())
+                        .setNegativeButton(uiEn() ? "No" : "لا", (d, w) -> res.cancel())
                         .setOnCancelListener(d -> res.cancel())
                         .show();
                 return true;
@@ -223,6 +229,14 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface public String getSignal() { return G.signalJson(MainActivity.this).toString(); }
         @JavascriptInterface public void setSalawatOn(boolean on) { G.setSalawatOn(MainActivity.this, on); }
+        /* 1.138: the UI language, shared with the WatchService so its
+           persistent notification speaks the same language. */
+        @JavascriptInterface public void setUiLang(String l) {
+            try { G.p(MainActivity.this).edit()
+                    .putString("uiLang", "en".equals(l) ? "en" : "ar").apply(); }
+            catch (Exception ignored) {}
+        }
+
         @JavascriptInterface public String getSalawatState() {
             try {
                 JSONObject o = new JSONObject();
@@ -393,20 +407,24 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void downloadPack(final String name, final double lat,
-                                                       final double lng, final int radiusKm) {
+                                                       final double lng, final int radiusKm,
+                                                       final boolean refresh,
+                                                       final boolean smart) {
             if (packThread != null && packThread.isAlive()) return;
             packCancel = false; packDiscard = false;
             synchronized (sessionFiles) { sessionFiles.clear(); }
             packThread = new Thread(() -> {
+                if (smart) { smartPackDownload(name, lat, lng, radiusKm); return; }
                 String[] layers = { "vec", "sat" };
                 final int total = countTiles(lat, lng, radiusKm, true)
                         + countTiles(lat, lng, radiusKm, false) + missingGlyphs().size();
                 int done = 0, fails = 0, consecFails = 0, fresh = 0;
                 long bytes = 0;
                 boolean aborted = false;
+                String tpl = null; // 1.133: declared at thread level so the completion block can store it as the pack's vec baseline
                 try {
                     // Vector tiles live under a dated path published in the TileJSON — learn it first.
-                    String tpl = null;
+                    tpl = null;
                     String tj = fetchText("https://tiles.openfreemap.org/planet");
                     if (tj != null) {
                         try { tpl = new JSONObject(tj).getJSONArray("tiles").getString(0); }
@@ -439,13 +457,14 @@ public class MainActivity extends Activity {
                                     if (packCancel) break;
                                     File f = new File(new File(new File(getFilesDir(), "tiles"), layer),
                                             z + "/" + x + "/" + y + (vec ? ".pbf" : ".jpg"));
-                                    if (f.exists() && f.length() > 0) { done++; continue; } // 1.65: vec used to skip on existence alone — a 0-byte shell saved in a flaky fetch was then skipped forever and rendered as a blank tile at deep zoom
+                                    if (!refresh && f.exists() && f.length() > 0) { done++; continue; } // 1.131: refresh (Update button) disables the skip — every tile re-fetched fresh, a real sync // 1.65: vec used to skip on existence alone — a 0-byte shell saved in a flaky fetch was then skipped forever and rendered as a blank tile at deep zoom
                                     String url = vec
                                             ? tpl.replace("{z}", "" + z).replace("{x}", "" + x).replace("{y}", "" + y)
                                             : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x;
                                     long got = fetchTile(url, f);
                                     if (got >= 0) { bytes += got; consecFails = 0; fresh++;
                                         synchronized (sessionFiles) { sessionFiles.add(f); } }
+                                    else if (got == -2) { consecFails = 0; } // 1.136: a 404 proves the connection works — it must never trip the failure abort
                                     else { fails++; if (++consecFails >= 30) { aborted = true; break; } }
                                     done++;
                                     if (done % 10 == 0) {
@@ -479,6 +498,7 @@ public class MainActivity extends Activity {
                         JSONArray packs = new JSONArray(sp.getString("packs", "[]"));
                         JSONObject pk = new JSONObject();
                         pk.put("name", name); pk.put("lat", lat); pk.put("lng", lng);
+                        try { pk.put("vecTpl", tpl); } catch (Exception ignored) {} // 1.133: baseline for smart checks
                         pk.put("radiusKm", radiusKm); pk.put("at", System.currentTimeMillis());
                         pk.put("mb", Math.round(bytes / 104857.6) / 10.0);
                         // Dedupe (1.42): an identical pack (same centre + radius) is
@@ -498,9 +518,219 @@ public class MainActivity extends Activity {
                         o.put("mb", Math.round(bytes / 104857.6) / 10.0);
                     }
                 } catch (Exception ignored) {}
-                pushJs("window.__onPackDone&&window.__onPackDone(" + o.toString() + ")");
+                saveTileETags(); // 1.133: persist sat fingerprints gathered this run
+                saveTileVerified(); // 1.141
+            pushJs("window.__onPackDone&&window.__onPackDone(" + o.toString() + ")");
             });
             packThread.start();
+        }
+
+        /* ---- Smart update (1.133; ONE PASS since 1.137): every tile of
+           the pack is classified and, when needed, fetched in a single
+           pass — one progress counter, no phases. Vector sync is decided
+           by the published build stamp inside the TileJSON template;
+           satellite tiles are verified by HEAD/ETag and re-fetched in
+           place when changed; tiles the source answered 404 for are
+           remembered and skipped; legitimately empty vector tiles are
+           valid tiles, not failures. ---- */
+        private void smartPackDownload(final String name, final double lat,
+                                       final double lng, final int radiusKm) {
+            final java.util.concurrent.atomic.AtomicInteger processed = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger newC = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger changedC = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger syncedC = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger unverifiable = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger fastC = new java.util.concurrent.atomic.AtomicInteger(0); // 1.141
+            final java.util.concurrent.atomic.AtomicInteger sourceMissing = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger fails = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicInteger consecFails = new java.util.concurrent.atomic.AtomicInteger(0);
+            final java.util.concurrent.atomic.AtomicLong bytes = new java.util.concurrent.atomic.AtomicLong(0);
+            final java.util.concurrent.atomic.AtomicBoolean abortedF = new java.util.concurrent.atomic.AtomicBoolean(false);
+            boolean baseline = false;
+            String tplNow = null, storedTpl = null;
+            double storedMb = -1;
+            int planTotal = 0;
+            try {
+                String tj = null;
+                for (int attempt = 0; attempt < 2 && tj == null; attempt++) {
+                    tj = fetchText("https://tiles.openfreemap.org/planet");
+                    if (tj == null && attempt == 0) { try { Thread.sleep(1500); } catch (Exception ignored) {} }
+                }
+                if (tj != null) {
+                    try { tplNow = new JSONObject(tj).getJSONArray("tiles").getString(0); }
+                    catch (Exception ignored) {}
+                }
+                if (tplNow == null) abortedF.set(true);
+                if (!abortedF.get()) {
+                    for (String[] g : missingGlyphs()) {
+                        if (packCancel) break;
+                        String url = "https://tiles.openfreemap.org/fonts/"
+                                + g[0].replace(" ", "%20") + "/" + g[1] + ".pbf";
+                        long got = fetchTile(url, glyphFile(g[0], g[1]));
+                        if (got >= 0) bytes.addAndGet(got);
+                    }
+                }
+                android.content.SharedPreferences sp = G.p(MainActivity.this);
+                JSONArray packs0 = new JSONArray(sp.getString("packs", "[]"));
+                String key = name + "|" + radiusKm + "|"
+                        + Math.round(lat * 100) + "|" + Math.round(lng * 100);
+                for (int i = 0; i < packs0.length(); i++) {
+                    JSONObject e = packs0.optJSONObject(i); if (e == null) continue;
+                    String ek = e.optString("name") + "|" + e.optInt("radiusKm") + "|"
+                            + Math.round(e.optDouble("lat") * 100) + "|" + Math.round(e.optDouble("lng") * 100);
+                    if (ek.equals(key)) {
+                        if (e.has("vecTpl")) storedTpl = e.optString("vecTpl");
+                        storedMb = e.optDouble("mb", -1);
+                    }
+                }
+                baseline = (storedTpl == null);
+                final boolean vecChanged = !baseline && !storedTpl.equals(tplNow);
+                final String tplF = tplNow;
+                final int planHolder[] = new int[1];
+                java.util.List<Runnable> tasks = new java.util.ArrayList<>();
+                if (!abortedF.get()) {
+                    for (int pass = 0; pass < 2; pass++) {
+                        final boolean vec = pass == 0;
+                        int zMax = vec ? 13 : 18;
+                        for (int z = 7; z <= zMax; z++) {
+                            int[] r = tileRange(lat, lng,
+                                    vec ? radiusForZVec(radiusKm, z) : radiusForZSAT(radiusKm, z), z);
+                            for (int x = r[0]; x <= r[1]; x++) {
+                                for (int y = r[2]; y <= r[3]; y++) {
+                                    planTotal++;
+                                    final File f = new File(new File(new File(getFilesDir(), "tiles"), vec ? "vec" : "sat"),
+                                            z + "/" + x + "/" + y + (vec ? ".pbf" : ".jpg"));
+                                    final String url = vec
+                                            ? tplF.replace("{z}", "" + z).replace("{x}", "" + x).replace("{y}", "" + y)
+                                            : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x;
+                                    boolean missing = !f.exists() || (f.length() == 0 && !(vec && etagFor(f) != null && !"404".equals(etagFor(f)))); // 1.137: a 0-byte vec file with a recorded fingerprint/marker is a known empty tile, not a missing one
+                                    if (missing && "404".equals(etagFor(f)) && !(vec && vecChanged)) {
+                                        sourceMissing.incrementAndGet(); processed.incrementAndGet();
+                                    } else if (vec && !missing && !vecChanged) {
+                                        syncedC.incrementAndGet(); processed.incrementAndGet();
+                                    } else if (missing) {
+                                        newC.incrementAndGet();
+                                        tasks.add(() -> fetchSmartTile(f, url, processed, updated, newC, changedC, sourceMissing, bytes, fails, consecFails, abortedF, planHolder[0]));
+                                    } else if (vec) { // existing vec, build changed
+                                        changedC.incrementAndGet();
+                                        tasks.add(() -> fetchSmartTile(f, url, processed, updated, newC, changedC, sourceMissing, bytes, fails, consecFails, abortedF, planHolder[0]));
+                                    } else { // existing satellite tile: verify, fetch in place if changed
+                                        tasks.add(() -> {
+                                            boolean fetched = false;
+                                            if (!packCancel && !abortedF.get()) {
+                                                Long va = verifiedAt(f);
+                                                if (va != null && System.currentTimeMillis() - va.longValue() < VERIFIED_TTL_MS) {
+                                                    fastC.incrementAndGet(); syncedC.incrementAndGet(); // 1.141: verified within 7 days — no server round-trip
+                                                } else {
+                                                    String et = headETag(url);
+                                                    String stored = etagFor(f);
+                                                    if (et == null || stored == null || "404".equals(stored)) unverifiable.incrementAndGet();
+                                                    else if (!et.equals(stored)) {
+                                                        changedC.incrementAndGet();
+                                                        fetchSmartTile(f, url, processed, updated, newC, changedC, sourceMissing, bytes, fails, consecFails, abortedF, planHolder[0]);
+                                                        fetched = true;
+                                                    } else { recordVerified(f); syncedC.incrementAndGet(); }
+                                                }
+                                            }
+                                            if (!fetched) {
+                                                int d = processed.incrementAndGet();
+                                                if (d % 25 == 0) pushSmartProgress(d, planHolder[0], updated.get());
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                planHolder[0] = planTotal;
+                if (!abortedF.get() && !tasks.isEmpty() && !packCancel) {
+                    java.util.concurrent.ExecutorService pool =
+                            java.util.concurrent.Executors.newFixedThreadPool(10);
+                    for (Runnable t : tasks) pool.execute(t);
+                    pool.shutdown();
+                    try { pool.awaitTermination(60, java.util.concurrent.TimeUnit.MINUTES); }
+                    catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+            if (packDiscard) {
+                synchronized (sessionFiles) {
+                    for (File f : sessionFiles) f.delete();
+                    sessionFiles.clear();
+                }
+            }
+            saveTileETags();
+            saveTileVerified();
+            JSONObject o = new JSONObject();
+            try {
+                boolean aborted = abortedF.get();
+                o.put("ok", !packCancel && !aborted);
+                o.put("cancelled", packCancel);
+                o.put("discarded", packDiscard);
+                o.put("smart", true);
+                o.put("tiles", planTotal);
+                o.put("fresh", updated.get());
+                o.put("fails", fails.get());
+                o.put("ready", newC.get() + changedC.get());
+                o.put("newTiles", newC.get());
+                o.put("changedTiles", changedC.get());
+                o.put("synced", syncedC.get());
+                o.put("unverifiable", unverifiable.get());
+                o.put("fast", fastC.get());
+                o.put("sourceMissing", sourceMissing.get());
+                o.put("baseline", baseline);
+                if (!packCancel && !aborted) {
+                    android.content.SharedPreferences sp = G.p(MainActivity.this);
+                    JSONArray packs = new JSONArray(sp.getString("packs", "[]"));
+                    JSONObject pk = new JSONObject();
+                    pk.put("name", name); pk.put("lat", lat); pk.put("lng", lng);
+                    pk.put("radiusKm", radiusKm); pk.put("at", System.currentTimeMillis());
+                    pk.put("vecTpl", tplNow);
+                    double mb = storedMb >= 0 ? storedMb : Math.round(bytes.get() / 104857.6) / 10.0;
+                    pk.put("mb", mb);
+                    String key = name + "|" + radiusKm + "|"
+                            + Math.round(lat * 100) + "|" + Math.round(lng * 100);
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < packs.length(); i++) {
+                        JSONObject e = packs.optJSONObject(i); if (e == null) continue;
+                        String ek = e.optString("name") + "|" + e.optInt("radiusKm") + "|"
+                                + Math.round(e.optDouble("lat") * 100) + "|" + Math.round(e.optDouble("lng") * 100);
+                        if (!ek.equals(key)) kept.put(e);
+                    }
+                    kept.put(pk);
+                    sp.edit().putString("packs", kept.toString()).apply();
+                    o.put("mb", mb);
+                }
+            } catch (Exception ignored) {}
+            pushJs("window.__onPackDone&&window.__onPackDone(" + o.toString() + ")");
+        }
+
+        private void pushSmartProgress(int done, int total, int updatedCount) {
+            pushJs("window.__onPackProgress&&window.__onPackProgress({done:" + done
+                    + ",total:" + total + ",updated:" + updatedCount + "})");
+        }
+
+        private void fetchSmartTile(File f, String url,
+                java.util.concurrent.atomic.AtomicInteger processed,
+                java.util.concurrent.atomic.AtomicInteger updated,
+                java.util.concurrent.atomic.AtomicInteger newC,
+                java.util.concurrent.atomic.AtomicInteger changedC,
+                java.util.concurrent.atomic.AtomicInteger sourceMissing,
+                java.util.concurrent.atomic.AtomicLong bytes,
+                java.util.concurrent.atomic.AtomicInteger fails,
+                java.util.concurrent.atomic.AtomicInteger consecFails,
+                java.util.concurrent.atomic.AtomicBoolean abortedF,
+                int planTotal) {
+            if (!packCancel && !abortedF.get()) {
+                long got = fetchTile(url, f);
+                if (got >= 0) { bytes.addAndGet(got); updated.incrementAndGet(); consecFails.set(0);
+                    synchronized (sessionFiles) { sessionFiles.add(f); } }
+                else if (got == -2) { consecFails.set(0); sourceMissing.incrementAndGet(); }
+                else { fails.incrementAndGet(); if (consecFails.incrementAndGet() >= 30) abortedF.set(true); }
+            }
+            int d = processed.incrementAndGet();
+            if (d % 10 == 0) pushSmartProgress(d, planTotal, updated.get());
         }
 
         /* ---- Country base pack (1.34): all of Oman at wide zooms only, so zooming out
@@ -576,6 +806,7 @@ public class MainActivity extends Activity {
                                     long got = fetchTile(url, f);
                                     if (got >= 0) { consecFails = 0; fresh++;
                                         synchronized (sessionFiles) { sessionFiles.add(f); } }
+                                    else if (got == -2) { consecFails = 0; } // 1.136: a 404 proves the connection works — it must never trip the failure abort
                                     else { fails++; if (++consecFails >= 30) { aborted = true; break; } }
                                     done++;
                                     if (done % 10 == 0) {
@@ -873,14 +1104,28 @@ public class MainActivity extends Activity {
         return new int[] { x0, x1, y0, y1 };
     }
 
+    /* 1.137: one automatic retry for transient failures — on a flaky
+       connection a single dropped fetch used to fail a tile until the
+       next manual run. 404s are definitive and never retried. */
     private long fetchTile(String url, File dest) {
+        long r = fetchTileOnce(url, dest);
+        if (r == -1) {
+            try { Thread.sleep(700); } catch (Exception ignored) {}
+            r = fetchTileOnce(url, dest);
+        }
+        return r;
+    }
+
+    private long fetchTileOnce(String url, File dest) {
         HttpURLConnection c = null;
         try {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(12000); c.setReadTimeout(12000);
             c.setRequestProperty("User-Agent", "AlHaris-Guardian/1.28 (free offline safety maps)");
             c.setRequestProperty("Accept-Encoding", "identity"); // 1.67: same as fetchTile
-            if (c.getResponseCode() != 200) return -1;
+            int rc = c.getResponseCode();
+            if (rc != 200) { if (rc == 404) { recordTile404(dest); return -2; } return -1; } // 1.136: -2 = the source simply has no such tile (desert zooms beyond Esri/OSM coverage) — recorded so checks skip it forever
+            final String etagHdr = c.getHeaderField("ETag"); // 1.133: sat-tile fingerprint for smart updates
             long declared = c.getContentLengthLong();
             dest.getParentFile().mkdirs();
             File tmp = new File(dest.getPath() + ".tmp");
@@ -895,11 +1140,150 @@ public class MainActivity extends Activity {
             if (declared > 0 && total != declared) { tmp.delete(); return -1; }
             // 1.65: an empty body is a FAILED fetch, never a tile — a 0-byte
             // .pbf saved as "done" renders as a permanently blank map tile.
-            if (total == 0) { tmp.delete(); return -1; }
+            if (total == 0 && !dest.getPath().contains("/tiles/vec/")) { tmp.delete(); return -1; } // 1.137: a 0-byte VECTOR tile is a legitimate empty tile (nothing mapped there — measured: exactly the 13 perpetually failing z13 desert tiles); sat/glyph empties stay failures. A mid-body drop is still caught by the declared-length check above or by an exception.
             if (!tmp.renameTo(dest)) { tmp.delete(); return -1; }
+            if (etagHdr != null) recordTileETag(dest, etagHdr); // 1.133
+            if (dest.getPath().contains("/tiles/sat/")) recordVerified(dest); // 1.141: freshly fetched = verified now
+            else if (total == 0) recordTileETag(dest, "EMPTY"); // 1.137: a deliberately saved empty vec tile
             return total;
+
         } catch (Exception e) { return -1; }
         finally { if (c != null) c.disconnect(); }
+    }
+
+    /* ---- Tile fingerprints (1.133): ETags of satellite tiles, recorded at
+       fetch time so a later smart update can verify each tile with a HEAD
+       request instead of re-downloading it. ---- */
+    private java.util.Map<String, String> tileETags = null;
+
+    private synchronized java.util.Map<String, String> etagMap() {
+        if (tileETags == null) {
+            tileETags = new java.util.HashMap<>();
+            try {
+                File f = new File(getFilesDir(), "tile-etags.json");
+                if (f.exists()) {
+                    java.io.FileInputStream in = new java.io.FileInputStream(f);
+                    byte[] buf = new byte[(int) f.length()];
+                    int off = 0, r;
+                    while ((r = in.read(buf, off, buf.length - off)) > 0) off += r;
+                    in.close();
+                    JSONObject o = new JSONObject(new String(buf, "UTF-8"));
+                    java.util.Iterator<String> it = o.keys();
+                    while (it.hasNext()) { String k = it.next(); tileETags.put(k, o.optString(k)); }
+                }
+            } catch (Exception ignored) {}
+        }
+        return tileETags;
+    }
+
+    private static String etagKeyFor(File dest) {
+        String pp = dest.getPath();
+        int i = pp.indexOf("/tiles/sat/");
+        if (i >= 0) return "sat/" + pp.substring(i + 11).replace(".jpg", "");
+        i = pp.indexOf("/tiles/vec/");
+        if (i >= 0) return "vec/" + pp.substring(i + 11).replace(".pbf", "");
+        return null;
+    }
+
+    /* 1.136: tiles the source answered 404 for are remembered under the
+       sentinel etag "404" so future checks/downloads skip them at once. */
+    private void recordTile404(File dest) {
+        String k = etagKeyFor(dest);
+        if (k == null) return;
+        synchronized (etagMap()) { etagMap().put(k, "404"); }
+    }
+
+    private void recordTileETag(File dest, String etag) {
+        String k = etagKeyFor(dest);
+        if (k == null) return;
+        synchronized (etagMap()) { etagMap().put(k, etag); }
+    }
+
+    private String etagFor(File dest) {
+        String k = etagKeyFor(dest);
+        if (k == null) return null;
+        synchronized (etagMap()) { return etagMap().get(k); }
+    }
+
+    /* 1.141: satellite verification cache (approved by Hilal in the
+       1.140 audit). Esri offers no change feed, so a smart check HEADs
+       every fingerprinted sat tile — minutes on a 500 km pack. A tile
+       whose HEAD matched, or which was freshly fetched, within the
+       last 7 days is trusted without asking the server. The first
+       check on a device still verifies everything once and plants
+       the stamps; a failed HEAD never plants one. */
+    private java.util.Map<String, Long> verifiedMap;
+    private volatile boolean verifiedDirty;
+    private static final long VERIFIED_TTL_MS = 7L * 24 * 3600 * 1000;
+    private synchronized java.util.Map<String, Long> verifiedMap() {
+        if (verifiedMap == null) {
+            verifiedMap = new java.util.HashMap<>();
+            try {
+                File f = new File(getFilesDir(), "tile-verified.json");
+                if (f.isFile()) {
+                    byte[] b = new byte[(int) f.length()];
+                    java.io.FileInputStream in = new java.io.FileInputStream(f);
+                    int off = 0;
+                    while (off < b.length) { int r = in.read(b, off, b.length - off); if (r < 0) break; off += r; }
+                    in.close();
+                    JSONObject o = new JSONObject(new String(b, "UTF-8"));
+                    java.util.Iterator<String> it = o.keys();
+                    while (it.hasNext()) { String k = it.next(); verifiedMap.put(k, o.optLong(k, 0)); }
+                }
+            } catch (Exception ignored) {}
+        }
+        return verifiedMap;
+    }
+    private Long verifiedAt(File dest) {
+        String k = etagKeyFor(dest);
+        if (k == null) return null;
+        synchronized (verifiedMap()) { return verifiedMap().get(k); }
+    }
+    private void recordVerified(File dest) {
+        String k = etagKeyFor(dest);
+        if (k == null) return;
+        synchronized (verifiedMap()) { verifiedMap().put(k, System.currentTimeMillis()); }
+        verifiedDirty = true;
+    }
+    private void saveTileVerified() {
+        if (!verifiedDirty) return;
+        try {
+            java.util.Map<String, Long> m;
+            synchronized (verifiedMap()) { m = new java.util.HashMap<>(verifiedMap()); }
+            JSONObject o = new JSONObject();
+            for (java.util.Map.Entry<String, Long> e : m.entrySet())
+                o.put(e.getKey(), e.getValue().longValue());
+            File f = new File(getFilesDir(), "tile-verified.json");
+            java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+            out.write(o.toString().getBytes("UTF-8"));
+            out.close();
+            verifiedDirty = false;
+        } catch (Exception ignored) {}
+    }
+
+    private void saveTileETags() {
+        try {
+            java.util.Map<String, String> m;
+            synchronized (etagMap()) { m = new java.util.HashMap<>(etagMap()); }
+            JSONObject o = new JSONObject(m);
+            File f = new File(getFilesDir(), "tile-etags.json");
+            java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+            out.write(o.toString().getBytes("UTF-8"));
+            out.close();
+        } catch (Exception ignored) {}
+    }
+
+    private String headETag(String url) {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(url).openConnection();
+            c.setRequestMethod("HEAD");
+            c.setConnectTimeout(8000); c.setReadTimeout(8000);
+            c.setRequestProperty("User-Agent", "AlHaris-Guardian/1.133 (smart map update check)");
+            if (c.getResponseCode() != 200) return null;
+            return c.getHeaderField("ETag");
+        } catch (Exception e) { return null; }
+        finally { /* 1.136: no disconnect() — the runtime pools the connection, so the next HEAD to the same host reuses it instead of a fresh TLS handshake */ }
     }
 
     static int countFiles(File f) {
