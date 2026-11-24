@@ -153,19 +153,15 @@
     </div>
   </section>
 
-  <section class="card" id="arrowCard">
-    <h2>سهم اتجاه العودة</h2>
-    <div class="row">
-      <div id="arrowBox"><div id="arrowGlyph">➤</div><div id="arrowDist">—</div></div>
+  <section class="card" id="journeyCard">
+    <h2>المكان المثبّت الجديد</h2>
+    <div id="journeyPlace" class="journeyPlace">
+      <div id="journeyName">—</div>
+      <div id="journeyDist" class="dim">—</div>
     </div>
-    <div class="row">
-      <button id="btnStartOver" class="btn grow">🔄 البدء من جديد</button>
-      <button id="btnReturnPick" class="btn gold grow">↩ العودة إلى مكان مثبّت</button>
-    </div>
-    <div id="returnList" style="display:none"></div>
-    <select id="arrowTarget" class="inp" style="display:none"></select>
-    <p class="dim">«البدء من جديد» يمسح هدف العودة ويوقف الإرشاد. و«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.</p>
+    <p class="dim" id="journeySummary"></p>
   </section>
+  <select id="arrowTarget" class="inp" style="display:none"></select>
 
   <section class="card">
     <h2>خريطة اللمعات</h2>
@@ -187,7 +183,7 @@
       <svg class="ic icGold" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round"/></svg>
       <h2>الخريطة — تعمل بلا إنترنت</h2>
     </div>
-    <div id="mapView"><div id="navDist" class="navDist" style="display:none"></div></div>
+    <div id="mapView"><div id="navDist" class="navDist" style="display:none"></div><div id="compass" class="compass"><div id="compassRing"><span id="cN" class="cN">ش</span><span id="cE" class="cE">ق</span><span id="cS" class="cS">ج</span><span id="cW" class="cW">غ</span></div><div class="compassPin"></div><div class="compassCore"><div id="compassDir">—</div><div id="compassDeg"></div></div></div></div>
     <div class="row">
       <button class="btn small gold" id="btnLayerRoads">طرق</button>
       <button class="btn small" id="btnLayerSat">أقمار</button>
@@ -269,7 +265,13 @@
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.143 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.168 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+
+  <section class="repoCard">
+    <div class="repoTitle">مستودع المشروع على GitHub</div>
+    <a id="repoLink" dir="ltr" href="https://github.com/samshua284-gif/al-haris">github.com/samshua284-gif/al-haris</a>
+    <button class="btn small gold" id="btnCopyRepo">📋 نسخ الرابط</button>
+  </section>
 </main>
 
 <main id="page-hunt" class="page">

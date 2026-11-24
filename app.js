@@ -19,7 +19,7 @@ const AR2EN={
 'افتح إعدادات الموقع في الهاتف':"Open the phone's Location settings",'فتح إعدادات الموقع':'Open Location settings',
 'سجّل لمعة هنا':'Log a flicker here','فتح إعدادات الشبكة (فرض 2G)':'Open network settings (force 2G)','فتح إعدادات الشبكة':'Open network settings',
 '🎯 صيد الإشارة':'🎯 Signal hunt','دلّني إلى أقرب لمعة معروفة':'Guide me to the nearest known flicker',
-'سهم اتجاه العودة':'Return direction arrow',
+'سهم اتجاه العودة':'Return direction arrow','المكان المثبّت الجديد':'Newest pinned place',
 'اضغط السهم لعرض الهدف على الخريطة، واتبع إشارة السهم إلى مكانك.':'Tap the arrow to show the target on the map, and follow the arrow back to your place.',
 '🔄 البدء من جديد':'🔄 Start over','↩ العودة إلى مكان مثبّت':'↩ Return to a pinned place',
 '«البدء من جديد» يمسح هدف العودة ويوقف الإرشاد. و«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.':'"Start over" clears the return target and stops guidance. "Return to a pinned place" opens your saved places under their current names — pick one and the arrow points to it; tap the arrow itself to show it on the map.',
@@ -53,7 +53,7 @@ const AR2EN={
 'نص رسالة الطمأنينة':'The "I am fine" message text',
 'اكتب اسمك ورقم الهاتف فقط، والباقي — موقعك وبطاريتك والوقت — يُكتب تلقائيًا عند ضغط زر الاستغاثة.':'Write only your name and the phone number; the rest — your location, battery and the time — is written automatically when you press the SOS button.',
 '✅ تأكّد وصول رسالة الاستغاثة إلى هاتف المستقبِل (تقرير تسليم من الشبكة).':"✅ Confirm the SOS message reached the recipient's phone (a delivery report from the network).",
-'حفظ الإعداد':'Save settings','إعادة الضبط — مسح ما كتبتُه بيدي':'Reset — erase what I wrote by hand',
+'حفظ الإعداد':'Save settings','مستودع المشروع على GitHub':'Project repository on GitHub','📋 نسخ الرابط':'📋 Copy link','إعادة الضبط — مسح ما كتبتُه بيدي':'Reset — erase what I wrote by hand',
 'كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.':'Everything is stored on your phone only. No accounts, no servers, no internet.',
 'الحارس 1.143 — مشروع مجاني لكل إنسان، في كل بلد.':'The Guardian 1.143 — a free project for every human, in every country.',
 '✅ أنا بخير — ألغِ الاستغاثة':'✅ I am fine — cancel the SOS',
@@ -156,7 +156,7 @@ function gauge(net,obj,otherHas,otherName,tech){
 /* ---------- geo helpers ---------- */
 function hav(a,b,c,d){const R=6371000,t=Math.PI/180;const x=(c-a)*t,y=(d-b)*t;const h=Math.sin(x/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 function brg(a,b,c,d){const t=Math.PI/180;const y=Math.sin((d-b)*t)*Math.cos(c*t);const x=Math.cos(a*t)*Math.sin(c*t)-Math.sin(a*t)*Math.cos(c*t)*Math.cos((d-b)*t);return (Math.atan2(y,x)/t+360)%360}
-function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+L(' كم',' km'):Math.round(m)+L(' م',' m')}
+function fmtDist(m){if(m==null||!isFinite(m))return '—';return m>=1000?(m/1000).toFixed(1)+L(' كم',' km'):Math.round(m)+L(' م',' m')}
 function chipDist(m){return m<1000?Math.round(m/5)*5+L(' م',' m'):(m<10000?(m/1000).toFixed(2)+L(' كم',' km'):fmtDist(m))}
 
 /* ---------- places & arrow ---------- */
@@ -177,14 +177,20 @@ function renderHomeArrow(){
   if(!myLoc){g.style.opacity=.3;tEl.textContent=L('بانتظار موقعك…','Waiting for your location…');return}
   let name,bd,b;
   if(t){name=t.label;bd=hav(myLoc.lat,myLoc.lng,t.lat,t.lng);b=brg(myLoc.lat,myLoc.lng,t.lat,t.lng)}
-  else{let best=pl[0];bd=1e18;pl.forEach(p=>{const d=hav(myLoc.lat,myLoc.lng,p.lat,p.lng);if(d<bd){bd=d;best=p}});name=best.name;b=brg(myLoc.lat,myLoc.lng,best.lat,best.lng)}
-  const rel=heading==null?b:b-heading;
+  else{/* 1.156 (Hilal's field discovery, 2026-11-24): skip the pin he is
+     standing on (<=30 m) when another place exists. He would pin a
+     destination, walk back to his start pin, and the auto arrow kept
+     pointing at the START pin under his feet while nothing pointed at the
+     destination pin. The flicker picker already had this "you are here"
+     skip; places now have it too. */
+    let best=null,near=pl[0],nd2=1e18;bd=1e18;pl.forEach(p=>{const d=hav(myLoc.lat,myLoc.lng,p.lat,p.lng);if(d<nd2){nd2=d;near=p}if(d>30&&d<bd){bd=d;best=p}});if(!best){best=near;bd=nd2}name=best.name;b=brg(myLoc.lat,myLoc.lng,best.lat,best.lng)}
+  const _ph=phoneHeading();const rel=_ph==null?b:b-_ph;
   g.style.opacity=1;g.style.transform='rotate('+(rel-90)+'deg)';
   tEl.textContent=L('العودة إلى: ','Back to: ')+name+' • '+fmtDist(bd);
 }
 let _selSig='';let placeEditOpen=false;
 function renderPlaces(){
-  renderHome();
+  renderHome();renderJourney();
   if(placeEditOpen)return;
   const list=$('placesList');const pl=state.places||[];
   const sel=$('arrowTarget');
@@ -206,7 +212,7 @@ function renderPlaces(){
     const d=document.createElement('div');d.className='placeRow';
     const dist=myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'';
     d.innerHTML='<span><b>'+p.name+'</b> <span class="dim">'+dist+'</span></span>';
-    d.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;openMapAt(p.lat,p.lng)};
+    d.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;const sel=$('arrowTarget');if(sel)sel.value='p'+i;startedOver=false;journeyPin=null;openMapAt(p.lat,p.lng);renderArrow();renderHomeArrow()};
     const ren=document.createElement('button');ren.textContent=L('تسمية','Rename');ren.className='ren';
     ren.onclick=()=>{placeEditOpen=true;
       const inp=document.createElement('input');inp.className='inp';inp.value=p.name;
@@ -236,10 +242,11 @@ function arrowTargetObj(){
 }
 function renderArrow(){
   const t=arrowTargetObj(),g=$('arrowGlyph'),dEl=$('arrowDist');
+  if(!g||!dEl)return; // 1.154: the places-page arrow card no longer exists
   if(!t){g.style.opacity=.3;dEl.textContent='—';return}
   if(!myLoc){g.style.opacity=.3;dEl.textContent=L('بانتظار موقعك…','Waiting for your location…');return}
   const d=hav(myLoc.lat,myLoc.lng,t.lat,t.lng),b=brg(myLoc.lat,myLoc.lng,t.lat,t.lng);
-  const rel=heading==null?b:b-heading;
+  const _ph=phoneHeading();const rel=_ph==null?b:b-_ph;
   g.style.opacity=1;g.style.transform='rotate('+(rel-90)+'deg)';
   dEl.textContent=t.label+' • '+(t.here?L('أنت عندها الآن — على بُعد '+fmtDist(d)+' فقط','You are there now — only '+fmtDist(d)+' away'):fmtDist(d));
 }
@@ -276,22 +283,26 @@ function renderReturnLists(){
 function startOver(){
   const sel=$('arrowTarget');if(sel)sel.value='';
   startedOver=true;
-  navTarget=null;try{updateNav()}catch(_){}
+  journeyPin=null;
+  navLine=null;
+  navTarget=null;locCadence();try{updateNav()}catch(_){}
   renderArrow();renderHomeArrow();renderReturnLists();
   openMap();
   if(myLoc&&mapObj){try{mapObj.easeTo({center:[myLoc.lng,myLoc.lat],zoom:Math.max(mapObj.getZoom(),15)})}catch(_){}}
 }
-[['btnStartOver',startOver],['btnStartOverH',startOver],
- ['btnReturnPick',()=>{returnListOpen=!returnListOpen;renderReturnLists()}],
+[['btnStartOverH',startOver],
  ['btnReturnPickH',()=>{returnListOpen=!returnListOpen;renderReturnLists()}]
 ].forEach(([id,fn])=>{const b=$(id);if(b)b.onclick=fn});
-$('arrowBox').onclick=()=>{const t=arrowTargetObj();if(t)openMapAt(t.lat,t.lng);else openMap()};
+const jpEl=$('journeyPlace');if(jpEl)jpEl.onclick=()=>{const pl=state.places||[];if(!pl.length)return;const p=pl[pl.length-1];journeyPin={lat:p.lat,lng:p.lng};openMapAt(p.lat,p.lng)};
 $('homeArrowGlyph').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 $('homeArrowText').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 let headingUp=false,lastBearingApplied=null,courseFix=null,gpsCourse=null,gpsCourseTs=0;
-function effHeading(){return (gpsCourse!=null&&Date.now()-gpsCourseTs<25000)?gpsCourse:heading}
+function effHeading(){return (gpsCourse!=null&&Date.now()-gpsCourseTs<25000)?gpsCourse:phoneHeading()}
+let azNative=null,azNativeTs=0;
+window.__onAz=a=>{if(isFinite(a)){azNative=+a;azNativeTs=Date.now();renderCompass();renderArrow();renderHomeArrow();applyHeadingUp();updatePtr()}};
+function phoneHeading(){return (azNative!=null&&Date.now()-azNativeTs<3000)?azNative:heading}
 function applyHeadingUp(){if(!headingUp||!mapObj)return;const eh=effHeading();if(eh==null)return;let d=lastBearingApplied==null?99:Math.abs(((eh-lastBearingApplied+540)%360)-180);if(d<3)return;lastBearingApplied=eh;try{mapObj.easeTo({bearing:eh,duration:250})}catch(e){}}
-window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow();applyHeadingUp()}});
+window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow();applyHeadingUp();renderCompass();updatePtr()}});
 
 /* ---------- SOS panels ---------- */
 let sosWasArmed=false;
@@ -364,7 +375,68 @@ function refresh(){
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();renderReturnLists();
   if(uiLang==='en')applyStaticLang();
 }
-window.__onLoc=l=>{if(l&&l.lat){if(courseFix&&hav(courseFix.lat,courseFix.lng,l.lat,l.lng)>=6){gpsCourse=brg(courseFix.lat,courseFix.lng,l.lat,l.lng);gpsCourseTs=Date.now();courseFix=l}else if(!courseFix)courseFix=l}myLoc=l;renderArrow();renderPlaces();renderMapUser();renderLocStatus();updateNav();applyHeadingUp();if(curPage==='map')refreshPackEst()}
+/* 1.157 (Hilal's field report, 2026-11-24): "large metre numbers appear
+   then disappear, and the arrow is unstable". Root cause: this phone also
+   delivers NETWORK fixes, which in open desert can land hundreds of metres
+   away; each one teleported his dot, swung every arrow and made the
+   counter leap. fixSane refuses a reading that is far coarser than the one
+   already held, or that jumps farther in under 10 s than its own accuracy
+   allows. releaseArrivedTarget closes the first/second pin file at the
+   root: when he ARRIVES at the explicitly chosen return pin (<=30 m) the
+   choice is released, so the home arrow rolls on to the next pin instead
+   of clinging to the one under his feet. */
+const sessionStartTs=Date.now();
+function fixSane(l){
+  if(!myLoc)return true;
+  const la=+l.acc, ma=+myLoc.acc;
+  if(isFinite(la)&&la>150&&(!isFinite(ma)||ma<=150))return false;
+  if(l.at&&myLoc.at&&l.at>myLoc.at&&l.at-myLoc.at<10000){
+    // 1.168: cold-start correction — in the first 15 s of a session a fix
+    // at least 3x more accurate than the planted one may jump freely to
+    // the truth (a coarse first fix after reopening must not imprison
+    // the dot hundreds of metres away until the jump window passes).
+    if(Date.now()-sessionStartTs<15000&&isFinite(la)&&isFinite(ma)&&la*3<=ma)return true;
+    const jump=hav(myLoc.lat,myLoc.lng,l.lat,l.lng);
+    if(jump>120+(isFinite(la)?la:0)+(isFinite(ma)?ma:0))return false;
+  }
+  return true;
+}
+/* 1.158: a soft bell for every pin (Hilal's idea) — when he steps into a
+   pin's ZERO ZONE (the pin inside his own accuracy halo, at least 15 m,
+   at most 50 m) the bell rings ONCE; it re-arms only after he walks
+   25 m beyond the zone, so boundary jitter never repeats it. The active
+   navigation target and every saved place are watched. */
+let pinBellState={}, pinBellSeen={}, lastBellTs=0;
+function checkPinBells(){
+  if(!myLoc)return;
+  // 1.162: the bell belongs to a JOURNEY, not to sitting in the app —
+  // Hilal reported it chiming on its own in the interface while he sat at
+  // his campsite, where both his pins are. Two rules: it rings only while
+  // guidance is active (a nav target or a journey pin is set), and only
+  // on a genuine ENTRY crossing — a session that starts inside a zone
+  // counts as already inside and stays silent until he leaves the zone
+  // (25 m past it) and truly returns.
+  const active=!!(navTarget||journeyPin);
+  const zone=Math.min(50,Math.max(15,(+myLoc.acc)||0));
+  const targets=[];
+  if(navTarget)targets.push({k:'nav:'+navTarget.lat.toFixed(5)+','+navTarget.lng.toFixed(5),lat:navTarget.lat,lng:navTarget.lng});
+  (state.places||[]).forEach(p=>targets.push({k:'p:'+p.lat.toFixed(5)+','+p.lng.toFixed(5),lat:p.lat,lng:p.lng}));
+  targets.forEach(t=>{
+    const d=hav(myLoc.lat,myLoc.lng,t.lat,t.lng);
+    if(!pinBellSeen[t.k]){pinBellSeen[t.k]=true;pinBellState[t.k]=(d<=zone);return}
+    if(d<=zone&&!pinBellState[t.k]){
+      pinBellState[t.k]=true;
+      if(active&&Date.now()-lastBellTs>=3000){lastBellTs=Date.now();try{GN&&GN.playBell&&GN.playBell()}catch(_){}}
+    }else if(d>zone+25&&pinBellState[t.k])pinBellState[t.k]=false;
+  });
+}
+function releaseArrivedTarget(){
+  const sel=$('arrowTarget');
+  if(!sel||!sel.value||sel.value[0]!=='p'||!myLoc)return;
+  const t=arrowTargetObj();
+  if(t&&hav(myLoc.lat,myLoc.lng,t.lat,t.lng)<=30){sel.value='';startedOver=false}
+}
+window.__onLoc=l=>{if(l&&l.lat){if(!fixSane(l))return;if(courseFix&&hav(courseFix.lat,courseFix.lng,l.lat,l.lng)>=6){gpsCourse=brg(courseFix.lat,courseFix.lng,l.lat,l.lng);gpsCourseTs=Date.now();courseFix=l}else if(!courseFix)courseFix=l}myLoc=l;releaseArrivedTarget();renderArrow();renderPlaces();renderJourney();renderMapUser();renderLocStatus();updateNav();checkPinBells();renderCompass();applyHeadingUp();if(curPage==='map')refreshPackEst()}
 
 /* ---------- actions ---------- */
 $('btnAddPlace').onclick=()=>{
@@ -448,6 +520,19 @@ $('btnSafeSend').onclick=()=>{
   // Messages composer with the safe template built; he sends it himself.
   GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer();
 };
+// 1.144: project-repository row at the foot of the Settings page —
+// tapping the link hands the URL to the phone's browser (the app
+// itself stays permission-free), and the copy button puts the link
+// on the clipboard for sharing onward.
+$('repoLink').onclick=e=>{
+  e.preventDefault();
+  if(GN&&GN.openRepo)GN.openRepo();
+  else alert('github.com/samshua284-gif/al-haris');
+};
+$('btnCopyRepo').onclick=()=>{
+  if(GN&&GN.copyRepoLink)GN.copyRepoLink();
+  toast(L('نُسخ الرابط — الصقه أين تشاء','Link copied — paste it anywhere'));
+};
 function longPress(btn,fn){
   let timer=null,start=0;
   const down=e=>{e.preventDefault();start=Date.now();btn.style.opacity=.55;
@@ -477,6 +562,13 @@ function fillSetup(){
 
 /* ---------- tabs ---------- */
 let curPage='home';
+let locFastWanted=null;
+function locCadence(){
+  const fast=(curPage==='map'||!!navTarget||!!journeyPin);
+  if(fast===locFastWanted)return;
+  locFastWanted=fast;
+  try{GN&&GN.setLocFast&&GN.setLocFast(fast)}catch(_){}
+}
 function showPage(name){
   if(name!=='hunt'&&typeof huntTimer!=='undefined'&&huntTimer){clearInterval(huntTimer);huntTimer=null}
   placeEditOpen=false;
@@ -484,6 +576,7 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===name));
   window.scrollTo(0,0);
+  locCadence();
   if(name==='map')setTimeout(initMap,60);
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPage(t.dataset.page)));
@@ -1056,10 +1149,41 @@ setInterval(()=>{if(!document.hidden&&GN&&GN.refreshSignal)GN.refreshSignal()},2
 /* ---------- offline map (MapLibre vector engine + locally downloaded tiles) ---------- */
 let mapObj=null,mapSatMode=false,mapMarkers=[],mapUserMarker=null,mapStyleOk=false,packRadius=500,packDownloading=false;
 let navTarget=null,navArrowMarker=null,navTgtMarker=null,navB=null;
+let journeyPin=null;
 function rotDart(){if(!navArrowMarker||navB==null||!mapObj)return;const sp=navArrowMarker.getElement().firstChild;if(sp)sp.style.transform='rotate('+(navB-mapObj.getBearing())+'deg)'}
 function openMap(){showPage('map')}
+// 1.145 (Hilal, field report 2026-11-24): walking back to his start pin, the
+// map opened on an unpainted view — roads cream-empty, satellite all black —
+// until «موقعي» was pressed. His tile store was proven healthy (one press
+// restored everything), so the fault is a stale view/source state after the
+// return-navigation opening. Self-heal: shortly after any map opening,
+// resize + repaint; if tiles still have not loaded, reload the style once so
+// every tile is re-requested.
+let mapHealT=null;
+function healMapSoon(){
+  if(mapHealT)clearTimeout(mapHealT);
+  mapHealT=setTimeout(()=>{
+    if(!mapObj||curPage!=='map')return;
+    try{mapObj.resize();mapObj.triggerRepaint()}catch(e){}
+    setTimeout(()=>{
+      if(!mapObj||curPage!=='map')return;
+      let loaded=true;
+      try{loaded=mapObj.loaded()&&mapObj.areTilesLoaded()}catch(e){}
+      if(!loaded){try{refreshMapStyle()}catch(e){}}
+    },1200);
+  },350);
+}
+let navLine=null;
 function openMapAt(lat,lng){
   navTarget={lat:lat,lng:lng};
+  if(!journeyPin||journeyPin.lat!==lat||journeyPin.lng!==lng)journeyPin=null;
+  /* 1.160: open a LINE SESSION for the along-track counter — the origin is
+     the saved place he is standing on (<=30 m) when there is one (the
+     pin-to-pin case), otherwise his position right now; the baseline is
+     that origin-to-target distance and never changes during the walk. */
+  navLine=null;
+  if(myLoc){let o={lat:myLoc.lat,lng:myLoc.lng};(state.places||[]).forEach(p=>{if(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)<=30)o={lat:p.lat,lng:p.lng}});if(hav(o.lat,o.lng,lat,lng)>=1)navLine={oLat:o.lat,oLng:o.lng,tLat:lat,tLng:lng}}
+  locCadence();
   openMap();
   let n=0;
   const iv=setInterval(()=>{
@@ -1067,16 +1191,16 @@ function openMapAt(lat,lng){
     if(mapObj){clearInterval(iv);
       if(myLoc&&hav(myLoc.lat,myLoc.lng,lat,lng)>400)mapObj.fitBounds([[myLoc.lng,myLoc.lat],[lng,lat]],{padding:70,maxZoom:15});
       else mapObj.flyTo({center:[lng,lat],zoom:Math.max(mapObj.getZoom(),14)});
-      updateNav();}
+      updateNav();renderCompass();healMapSoon();}
     else if(n>24)clearInterval(iv);
   },150);
 }
 function nearestPlace(){
   const pl=state.places||[];
   if(!pl.length||!myLoc)return pl[0]||null;
-  let best=pl[0],bd=1e18;
-  pl.forEach(p=>{const d=hav(myLoc.lat,myLoc.lng,p.lat,p.lng);if(d<bd){bd=d;best=p}});
-  return best;
+  let best=null,bd=1e18,near=pl[0],nd2=1e18;
+  pl.forEach(p=>{const d=hav(myLoc.lat,myLoc.lng,p.lat,p.lng);if(d<nd2){nd2=d;near=p}if(d>30&&d<bd){bd=d;best=p}});
+  return best||near;
 }
 function satStyle(){
   const base=window.MAP_STYLE_ROADS;
@@ -1117,8 +1241,8 @@ function initMap(){
         attributionControl:{compact:true},minZoom:7,maxZoom:18});
       mapObj.addControl(new maplibregl.NavigationControl({showCompass:false}));
       mapObj.on('load',()=>{mapStyleOk=true;renderMapPlaces();renderMapUser()});
-      mapObj.on('style.load',()=>{ensureNav();updateNav()});
-      mapObj.on('rotate',()=>rotDart());
+      mapObj.on('style.load',()=>{updateNav();renderMapUser()});
+      mapObj.on('rotate',()=>{rotDart();updatePtr()});
       // (1.100: the TEMP DIAGNOSTIC error box from the 1.81 blank-band
       // hunt was removed for good at Hilal's order — the hunt is over.)
 
@@ -1129,6 +1253,7 @@ function initMap(){
     }
   }
   setTimeout(()=>{if(mapObj)mapObj.resize();renderMapPlaces();renderMapUser()},80);
+  healMapSoon();
   fillPackCenters();refreshPackEst();renderPacks();renderLocStatus();updatePackButtons();
 }
 function setMapLayer(sat){
@@ -1139,13 +1264,39 @@ function setMapLayer(sat){
   $('btnLayerSat').classList.toggle('gold',sat);
 }
 function renderMapPlaces(){
-  if(!mapObj)return;
+  if(!mapObj||placeEditOpen)return;
   mapMarkers.forEach(m=>m.remove());mapMarkers=[];
   (state.places||[]).forEach(p=>{
     const el=document.createElement('div');el.className='pin';el.textContent='📍';
     const pop=new maplibregl.Popup({offset:20,closeButton:false,closeOnClick:true,maxWidth:'250px'});
     const dv=document.createElement('div');dv.className='pinPop';
     dv.innerHTML='<div class="pinPopName">📍 '+p.name+'</div>';
+    // 1.161 (Hilal): rename right here, at the pin — an inline editor in
+    // the popup, saved by value-match exactly like the popup delete.
+    const ren=document.createElement('button');ren.className='pinRen';ren.textContent=L('✎ تغيير الاسم','✎ Rename');
+    ren.addEventListener('click',e=>{
+      e.stopPropagation();e.preventDefault();
+      placeEditOpen=true;
+      const inp=document.createElement('input');inp.className='pinNameInp';inp.value=p.name;
+      const save=document.createElement('button');save.className='pinRen';save.textContent=L('حفظ','Save');
+      dv.innerHTML='';dv.appendChild(inp);dv.appendChild(save);inp.focus();inp.select();
+      save.addEventListener('click',ev=>{
+        ev.stopPropagation();ev.preventDefault();
+        placeEditOpen=false;
+        const nn=inp.value.trim();
+        if(nn&&nn!==p.name){
+          const arr=(state.places||[]).slice();
+          let idx=arr.findIndex(q=>q.name===p.name&&q.lat===p.lat&&q.lng===p.lng);
+          if(idx<0)idx=arr.indexOf(p);
+          if(idx>=0){arr[idx]={name:nn,lat:p.lat,lng:p.lng};GN&&GN.savePlaces(JSON.stringify(arr));state.places=arr}
+        }
+        try{pop.remove()}catch(_){}
+        try{renderMapPlaces()}catch(_){}
+        try{renderPlaces()}catch(_){}
+        try{renderArrow();renderHomeArrow()}catch(_){}
+      });
+    });
+    dv.appendChild(ren);
     const del=document.createElement('button');del.className='pinDel';del.textContent=L('✕ حذف هذا المكان','✕ Delete this place');
     del.addEventListener('click',e=>{
       // 1.82 fix (Hilal: popup delete did nothing): remove exactly one place
@@ -1173,59 +1324,198 @@ function renderMapUser(){
   if(!mapObj||!myLoc)return;
   if(!mapUserMarker){
     const el=document.createElement('div');el.className='meDot';
+    const ptr=document.createElement('div');ptr.className='mePtr';ptr.id='mePtr';ptr.style.display='none';
+    ptr.innerHTML='<div class="mePtrLine"></div><div class="mePtrHead"></div>';
+    el.appendChild(ptr);
     mapUserMarker=new maplibregl.Marker({element:el}).setLngLat([myLoc.lng,myLoc.lat]).addTo(mapObj);
   }else mapUserMarker.setLngLat([myLoc.lng,myLoc.lat]);
+  renderHalo();
+  updatePtr();
 }
-/* 1.64 (Hilal's order): the guidance arrow ON the map itself — a dashed gold
-   line from his position to the chosen target with an arrowhead at 85% of
-   the way, rotated to the true bearing, refreshed on every GPS fix. The
-   style.load hook re-adds the layer after roads/satellite style switches. */
-function ensureNav(){
-  if(!mapObj)return;
+/* 1.164: Hilal's pointer — a short YELLOW LINE glued to the front of his
+   blue dot, tipped with a small BLUE arrowhead, walking with the dot and
+   always aimed at the target. It succeeds the free-floating gold dart,
+   which he found unstable: the dart hovered off-target in screen space
+   and swung with every fix, while this pointer is bolted to the dot
+   itself and only ever rotates. Fades when he is on the pin (<=12 m),
+   where a direction is meaningless. */
+function angDiff(a,b){return Math.abs(((a-b+540)%360)-180)}
+/* 1.166: the colour judges by a FRESH course only (<=8 s). effHeading
+   keeps a walking course "fresh" for 25 s, so after Hilal stopped and
+   turned in place the colour lagged seconds behind him; the phone's
+   front answers immediately when he is still. */
+function ptrHeading(){
+  if(gpsCourse!=null&&Date.now()-gpsCourseTs<8000)return gpsCourse;
+  return phoneHeading();
+}
+let ptrGreen=false;
+function updatePtr(){
+  const ptr=document.getElementById('mePtr');if(!ptr)return;
+  if(!navTarget||!myLoc||!mapObj){ptr.style.display='none';return}
+  ptr.style.display='block';
+  const tb=brg(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
+  ptr.style.transform='translate(-50%,-50%) rotate('+(tb-mapObj.getBearing())+'deg)';
+  ptr.style.opacity=hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng)<=12?'.25':'1';
+  // 1.165 (Hilal): the pointer's line carries his alignment signal — when
+  // HIS heading (GPS course while walking, the phone's front while still)
+  // runs straight at the target (within 18 deg) the line turns GLOWING
+  // GREEN; deviating past 26 deg returns it to yellow. The band between
+  // is a dead zone so the colour never flickers on the boundary. The
+  // blue arrowhead stays blue, as he drew it.
+  const line=ptr.children&&ptr.children[0];
+  if(line){
+    const eh=ptrHeading();
+    if(eh==null)ptrGreen=false;
+    else{const d=angDiff(eh,tb);if(!ptrGreen&&d<=18)ptrGreen=true;else if(ptrGreen&&d>=26)ptrGreen=false}
+    line.className=ptrGreen?'mePtrLine on':'mePtrLine';
+  }
+}
+/* 1.151: an accuracy halo around his blue dot, drawn at the fix's OWN
+   reported accuracy in metres — the honest picture of GPS: the dot is the
+   phone's best guess and he is somewhere inside the disc. It answers his
+   2026-11-24 field report "the blue circle overshot the place": the pin was
+   recorded by one reading and he is located by another, and the two errors
+   add up (his screenshot: 30 m). When the pin falls inside the halo, he has
+   arrived — whatever side of the pin the dot itself sits on. */
+function ensureHalo(){
+  if(!mapObj)return false;
   try{
-    if(!mapObj.getSource('navsrc')){
-      mapObj.addSource('navsrc',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});
-      mapObj.addLayer({id:'navline',type:'line',source:'navsrc',paint:{'line-color':'#ffcf4d','line-width':3,'line-dasharray':[2,1.5],'line-opacity':0.95}});
+    if(!mapObj.getSource('halosrc')){
+      mapObj.addSource('halosrc',{type:'geojson',data:{type:'Feature',geometry:{type:'Polygon',coordinates:[[]]}}});
+      mapObj.addLayer({id:'halofill',type:'fill',source:'halosrc',paint:{'fill-color':'#4db2ff','fill-opacity':0.13}});
+      mapObj.addLayer({id:'haloline',type:'line',source:'halosrc',paint:{'line-color':'#4db2ff','line-width':1.5,'line-opacity':0.55}});
     }
-  }catch(e){}
+    return true;
+  }catch(e){return false}
+}
+function renderHalo(){
+  if(!mapObj||!myLoc)return;
+  if(!ensureHalo())return;
+  let src=null;try{src=mapObj.getSource('halosrc')}catch(e){}
+  if(!src)return;
+  const acc=(myLoc&&isFinite(myLoc.acc)&&myLoc.acc>0)?myLoc.acc:0;
+  if(!acc||acc>1000){src.setData({type:'Feature',geometry:{type:'Polygon',coordinates:[[]]}});return}
+  const r=Math.max(8,acc),pts=[],clat=Math.cos(myLoc.lat*Math.PI/180);
+  for(let k=0;k<=48;k++){
+    const t=k/48*2*Math.PI;
+    pts.push([myLoc.lng+(r*Math.sin(t))/(111320*clat),myLoc.lat+(r*Math.cos(t))/111320]);
+  }
+  src.setData({type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}});
+}
+/* 1.148 (Hilal's order, 2026-11-24): NO lines on the map at all. He tested
+   the dashed lines in the field and found them useless — the straight gold
+   nav line (1.64) and the walked-path trail with its blue arrows
+   (1.146/1.147) are both deleted. Guidance is now exactly what he praised:
+   his small blue position dot, the gold dart, the target ring and the
+   remaining-distance chip. */
+/* 1.160: remaining ALONG THE LINE (Hilal's design): the counter falls
+   only by progress projected onto the straight origin-to-target line.
+   Sideways deviation does not reduce it; backward deviation increases
+   it — the increase is the deviation itself. */
+function lineRemaining(){
+  if(!navLine||!myLoc)return null;
+  const R=6371000,rad=Math.PI/180,latO=navLine.oLat*rad;
+  const dxT=(navLine.tLng-navLine.oLng)*rad*R*Math.cos(latO),dyT=(navLine.tLat-navLine.oLat)*rad*R;
+  const L2=dxT*dxT+dyT*dyT;if(L2<1)return null;
+  const dxP=(myLoc.lng-navLine.oLng)*rad*R*Math.cos(latO),dyP=(myLoc.lat-navLine.oLat)*rad*R;
+  const prog=(dxP*dxT+dyP*dyT)/Math.sqrt(L2);
+  return Math.max(0,Math.sqrt(L2)-prog);
 }
 function updateNav(){
   if(!mapObj)return;
-  ensureNav();
-  let src=null;try{src=mapObj.getSource('navsrc')}catch(e){}
-  if(!src)return;
   if(!navTarget||!myLoc){
     const nd0=$('navDist');if(nd0)nd0.style.display='none';
-    src.setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
     if(navArrowMarker){navArrowMarker.remove();navArrowMarker=null}
     if(navTgtMarker){navTgtMarker.remove();navTgtMarker=null}
+    updatePtr();
     return;
   }
-  src.setData({type:'Feature',geometry:{type:'LineString',coordinates:[[myLoc.lng,myLoc.lat],[navTarget.lng,navTarget.lat]]}});
   const b=brg(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
-  const nd=$('navDist');if(nd){nd.textContent=L('المتبقي: ','Remaining: ')+chipDist(hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng));nd.style.display='block'}
-  // 1.72: place the head in SCREEN space — a fixed pixel distance short of
-  // the target pin, so it stands visibly apart from the pin at every zoom
-  // (1.71's metre rule collapsed to the same pixel when zoomed out, and
-  // Hilal found the arrow "hiding under its mother"). Midway when the two
-  // points are 40–140 px apart; a clear 70 px off when they nearly coincide.
-  let ax,ay;
-  const pA=mapObj.project([myLoc.lng,myLoc.lat]),pB=mapObj.project([navTarget.lng,navTarget.lat]);
-  const dx=pA.x-pB.x,dy=pA.y-pB.y,pd=Math.hypot(dx,dy);
-  if(pd>1){
-    const backPx=pd>=140?Math.min(170,Math.max(70,pd*0.18)):(pd>=40?pd*0.5:70);
-    const t=backPx/pd,ll=mapObj.unproject([pB.x+dx*t,pB.y+dy*t]);
-    ax=ll.lng;ay=ll.lat;
-  }else{ax=myLoc.lng+(navTarget.lng-myLoc.lng)*0.85;ay=myLoc.lat+(navTarget.lat-myLoc.lat)*0.85;}
-  if(!navArrowMarker){
-    const el=document.createElement('div');el.className='navArrow';el.innerHTML='<span></span>';
-    navArrowMarker=new maplibregl.Marker({element:el}).setLngLat([ax,ay]).addTo(mapObj);
-  }else navArrowMarker.setLngLat([ax,ay]);
+  const nd=$('navDist');if(nd){const dd=hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
+    const zone=Math.min(50,Math.max(15,(+myLoc.acc)||0));
+    if(dd<=zone){
+      // 1.168: the arrival state — the eye's confirmation of the bell.
+      nd.textContent=journeyPin?L('✓ أنت عند الدبوس','✓ You are at the pin'):L('✓ وصلت إلى الدبوس','✓ You have arrived');
+      nd.style.color='#7dff9e';nd.style.borderColor='rgba(61,255,122,.65)';
+    }else{
+      nd.style.color='';nd.style.borderColor='';
+      if(journeyPin){nd.textContent=L('البُعد عن الدبوس: ','From the pin: ')+chipDist(dd)}
+      else{const lr=lineRemaining();
+        if(lr!=null)nd.innerHTML=L('المتبقّي على الخط: ','Left on the line: ')+chipDist(lr)+' <span style="opacity:.72;font-size:.72em;display:block">'+L('مباشر ','direct ')+chipDist(dd)+'</span>';
+        else nd.textContent=L('المتبقي: ','Remaining: ')+chipDist(dd)}
+    }
+    nd.style.display='block'}
+  // 1.164: the free-floating gold dart (1.72's screen-space head) is
+  // retired — Hilal found it unstable and designed its successor himself:
+  // the dot-glued pointer (updatePtr above). The target ring stays.
   if(!navTgtMarker){
     const te=document.createElement('div');te.className='navTgt';te.innerHTML='<span></span>';
     navTgtMarker=new maplibregl.Marker({element:te,anchor:'center'}).setLngLat([navTarget.lng,navTarget.lat]).addTo(mapObj);
   }else navTgtMarker.setLngLat([navTarget.lng,navTarget.lat]);
-  navB=b;rotDart();
+  updatePtr();
+}
+/* 1.149 (Hilal's request, 2026-11-24): a REAL compass at the map's top-left.
+   The dial ring rotates against his effective heading — GPS course while he
+   walks, the phone's compass while he stands (effHeading, the same source
+   the heading-up map uses) — so the gold pin at the top always marks the
+   direction he is actually moving/facing, and the centre names it in words
+   (شمال / شرق / جنوب / غرب and the in-betweens) with the degrees. */
+/* 1.152: the compass got its own heading rule, separate from the map's
+   effHeading (which holds the last GPS course for 25 s — right for rotating
+   the map, wrong for a compass: Hilal would arrive, turn around, and the
+   dial still showed his WALKING direction while he faced the opposite way).
+   1.153 (Hilal's explicit order, 2026-11-24): the compass follows THE
+   PHONE'S FRONT, always — the direction the top of the phone points,
+   walking or standing. GPS course no longer feeds the dial at all; the
+   map's heading-up mode keeps its own rule, untouched. */
+let compassSmooth=null;
+function compassHeading(){return phoneHeading()}
+function renderCompass(){
+  const ring=$('compassRing');if(!ring)return;
+  const letters=[L('ش','N'),L('ق','E'),L('ج','S'),L('غ','W')];
+  const key=letters.join('|');
+  if(renderCompass._k!==key){
+    renderCompass._k=key;
+    const ids=['cN','cE','cS','cW'];
+    for(let i=0;i<4;i++){const el=$(ids[i]);if(el)el.textContent=letters[i]}
+  }
+  let h=compassHeading();
+  if(h!=null){ // 1.157: glide — advance 40% of the shortest arc per update, so raw sensor noise never makes the dial tremble
+    if(compassSmooth==null)compassSmooth=h;else{const d=((h-compassSmooth+540)%360)-180;compassSmooth=(compassSmooth+d*0.4+360)%360}
+    h=compassSmooth;
+  }else compassSmooth=null;
+  const dirEl=$('compassDir'),degEl=$('compassDeg');
+  const cIds=['cN','cE','cS','cW'];
+  const upright=hdeg=>{
+    for(let i=0;i<4;i++){const el=$(cIds[i]);if(el)el.style.transform=((i===0||i===2)?'translateX(-50%)':'translateY(-50%)')+(hdeg?' rotate('+hdeg+'deg)':'')}
+  };
+  if(h==null){ring.style.transform='';upright(0);if(dirEl)dirEl.textContent='—';if(degEl)degEl.textContent='';return}
+  ring.style.transform='rotate('+(-h)+'deg)';
+  // 1.150: the letters travel around the dial but stay UPRIGHT — in 1.149
+  // they spun with the ring, lying sideways and upside down, which read as
+  // scrambled/reversed directions on Hilal's phone.
+  upright(h);
+  const names=L('شمال|شمال شرق|شرق|جنوب شرق|جنوب|جنوب غرب|غرب|شمال غرب','North|North-east|East|South-east|South|South-west|West|North-west').split('|');
+  if(dirEl)dirEl.textContent=names[Math.round(h/45)%8];
+  if(degEl)degEl.textContent=Math.round(h)+'°';
+}
+/* 1.154 (Hilal's order, 2026-11-24): the places-page return-arrow card is
+   replaced by a NEWEST PINNED PLACE card. It shows the last place he pinned;
+   tapping it starts a JOURNEY on the map from that pin: the map chip stops
+   reading "remaining" and reads "distance from the pin" — zero while he
+   stands on the pin, growing as he walks away, shrinking as he returns —
+   with the gold dart still guiding. Any other navigation (a return target
+   chosen elsewhere, start-over) ends journey mode. The card carries its own
+   summary line, exactly as he asked. */
+function renderJourney(){
+  const nm=$('journeyName'),ds=$('journeyDist'),sm=$('journeySummary');
+  if(!nm||!ds)return;
+  if(sm)sm.textContent=L('وظيفة هذه البطاقة: تعرض آخر مكان ثبّتّه. اضغط المكان فتبدأ رحلة على الخريطة من ذلك الدبوس بعدّاد يبدأ من الصفر — يزيد كلما ابتعدت عن الدبوس وينقص كلما رجعت إليه، والسهم الذهبي يرشدك إليه.','What this card does: it shows the last place you pinned. Tap the place and a journey starts on the map from that pin, with a counter that starts at zero — it grows as you walk away from the pin and shrinks as you return to it, while the gold dart guides you to it.');
+  const pl=state.places||[];
+  if(!pl.length){nm.textContent=L('لا مكان مثبّت بعد','No pinned place yet');ds.textContent=L('ثبّت مكانك وسيظهر هنا','Pin your place and it will appear here');return}
+  const p=pl[pl.length-1];
+  nm.textContent='📍 '+p.name;
+  ds.textContent=myLoc?(fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng))+L(' منك الآن — اضغط لبدء الرحلة',' from you now — tap to start the journey')):L('اضغط لبدء الرحلة على الخريطة','Tap to start the journey on the map');
 }
 function packCenterCoords(){
   const v=$('packCenter').value;
@@ -1425,6 +1715,9 @@ $('btnPinHere').onclick=()=>{
   const pl=state.places||[];pl.push({name:nm,lat:myLoc.lat,lng:myLoc.lng});
   GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;
   renderPlaces();renderMapPlaces();
+  const mkNew=mapMarkers[mapMarkers.length-1];
+  if(mkNew){try{mkNew.togglePopup()}catch(_){}
+    setTimeout(()=>{const rb=document.querySelector('.pinRen');if(rb)rb.click()},300);}
   const b=$('btnPinHere');const t=b.textContent;b.textContent=L('✓ ثُبّت: ','✓ Pinned: ')+nm;
   setTimeout(()=>{b.textContent=t},2400);
 };

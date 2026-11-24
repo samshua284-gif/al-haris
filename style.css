@@ -40,11 +40,26 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #mapView{height:56vh;min-height:320px;border-radius:14px;background:#0d1420;direction:ltr;z-index:0}
 .maplibregl-map{font-family:inherit}
 .maplibregl-ctrl-attrib{font-size:9px}
-.navDist{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(10,15,26,.85);color:#ffd977;border:1px solid rgba(217,164,65,.55);border-radius:999px;padding:6px 16px;font-size:17px;font-weight:700;white-space:nowrap}
+.compass{position:absolute;top:12px;left:12px;width:68px;height:68px;border-radius:50%;background:rgba(10,15,26,.85);border:1px solid rgba(217,164,65,.55);z-index:6;pointer-events:none;overflow:visible}
+#compassRing{position:absolute;inset:0;border-radius:50%}
+#compassRing span{position:absolute;font-size:12px;font-weight:700;color:#cfe3ff;line-height:1}
+#compassRing .cN{top:6px;left:50%;transform:translateX(-50%);color:#ff8a75}
+#compassRing .cS{bottom:6px;left:50%;transform:translateX(-50%)}
+#compassRing .cE{right:7px;top:50%;transform:translateY(-50%)}
+#compassRing .cW{left:7px;top:50%;transform:translateY(-50%)}
+.compassPin{position:absolute;top:-3px;left:50%;transform:translateX(-50%);width:12px;height:9px;background:#ffd24a;clip-path:polygon(50% 100%,0 0,100% 0);z-index:2}
+.compassCore{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+#compassDir{font-size:11px;font-weight:700;color:#ffd977;line-height:1.15}
+#compassDeg{font-size:10px;color:#cfe3ff;line-height:1.15}
+.navDist{position:absolute;top:10px;left:calc(50% + 30px);transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(10,15,26,.85);color:#ffd977;border:1px solid rgba(217,164,65,.55);border-radius:18px;padding:6px 16px;font-size:17px;font-weight:700;white-space:normal;text-align:center;line-height:1.3;max-width:calc(100% - 168px)}
 .mapWarn{position:absolute;left:8px;right:8px;bottom:8px;background:#3a2a10;color:#ffd977;border:1px solid #8a6a1d;border-radius:10px;padding:8px 10px;font-size:13px;z-index:5;text-align:center}
 .pin{font-size:22px;line-height:1;text-align:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
 .pinIcon,.meIcon{background:none;border:none}
-.meDot{width:16px;height:16px;border-radius:50%;background:#3fa9ff;border:3px solid #fff;box-shadow:0 0 10px rgba(63,169,255,.85)}
+.meDot{width:16px;height:16px;border-radius:50%;background:#3fa9ff;border:3px solid #fff;box-shadow:0 0 10px rgba(63,169,255,.85);transition:transform .3s linear}
+.mePtr{position:absolute;left:50%;top:50%;width:160px;height:160px;transform:translate(-50%,-50%);pointer-events:none;transition:transform .25s linear}
+.mePtrLine{position:absolute;left:50%;top:47px;width:4px;height:20px;margin-left:-2px;border-radius:3px;background:linear-gradient(#ffe873,#ffd94d);box-shadow:0 0 6px rgba(255,217,77,.8);transition:background .3s,box-shadow .3s}
+.mePtrLine.on{background:linear-gradient(#c2ff9e,#3dff7a);box-shadow:0 0 14px rgba(61,255,122,.95),0 0 5px rgba(61,255,122,.9)}
+.mePtrHead{position:absolute;left:50%;top:36px;margin-left:-6px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid #2f7bff;filter:drop-shadow(0 0 4px rgba(47,123,255,.8))}
 .prog{height:10px;background:#16233c;border-radius:6px;overflow:hidden;margin:10px 0 6px}
 #packProgBar,#updProgBar{height:100%;width:0;background:linear-gradient(90deg,#e8b84b,#57e389);transition:width .3s}
 .packR.sel{background:linear-gradient(180deg,#8a6a1d,#6d5312);border-color:#e8b84b;color:#ffeeb8;font-weight:700}
@@ -70,6 +85,8 @@ body.mapfs #tabbar{display:none}
 .pinPop{direction:rtl;text-align:center;font-family:inherit;padding:2px}
 .pinPopName{color:#152238;font-size:15.5px;font-weight:700;margin-bottom:2px}
 .pinDel{background:#b3261e;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:15px;font-family:inherit;cursor:pointer;margin-top:7px;width:100%}
+.pinRen{background:#8a6d1f;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:15px;font-family:inherit;cursor:pointer;margin-top:7px;width:100%}
+.pinNameInp{width:100%;box-sizing:border-box;padding:9px 10px;font-size:15px;font-family:inherit;border:1.5px solid #8a6d1f;border-radius:10px;background:#fff;color:#152238;margin-top:2px}
 .dim{color:#93a3bd;font-size:13px;line-height:1.65}
 .center{text-align:center}
 .row{display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap}
@@ -106,6 +123,10 @@ textarea.inp{resize:vertical}
 .retChip.sel{border-color:#c9a227;background:rgba(201,162,39,.14)}
 .placeRow button,.flickRow button{background:#2a1620;color:#ff9d94;border:1px solid #6b2b3a;border-radius:9px;padding:5px 11px;cursor:pointer;font-family:inherit}
 #arrowBox{text-align:center;min-width:96px}
+.journeyPlace{cursor:pointer;border:1px solid rgba(217,164,65,.45);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.03)}
+.journeyPlace:active{background:rgba(217,164,65,.12)}
+#journeyName{font-size:17px;font-weight:700;color:var(--gold)}
+#journeyDist{margin-top:3px}
 #arrowGlyph{font-size:43px;color:#7ee2a0;transition:transform .5s;display:inline-block;text-shadow:0 0 16px rgba(87,227,137,.5)}
 #arrowDist{font-size:14.5px;color:#c6d2e4;margin-top:2px}
 .idcard{margin-top:11px;background:rgba(6,10,20,.55);border:1px dashed #3d5a34;border-radius:12px;padding:12px;font-size:15px;line-height:1.9}
@@ -182,3 +203,7 @@ button,.tab,.chip{-webkit-user-select:none;user-select:none;-webkit-touch-callou
 .langOpt:active{transform:scale(.98)}
 .langTick{color:#57e389;font-weight:900}
 .langClose{position:absolute;top:8px;inset-inline-end:10px;background:none;border:none;color:#9fb2cc;font-size:17px;cursor:pointer;padding:6px}
+/* 1.144: standalone repository card under the app-info footer */
+.repoCard{margin:10px 0 4px;padding:14px 12px;text-align:center;border:1.5px solid rgba(242,205,107,.55);border-radius:14px;background:rgba(242,205,107,.06)}
+.repoTitle{font-weight:800;font-size:15px;margin-bottom:8px}
+#repoLink{display:block;color:#f2cd6b;text-decoration:underline;word-break:break-all;font-size:14.5px;margin-bottom:10px}

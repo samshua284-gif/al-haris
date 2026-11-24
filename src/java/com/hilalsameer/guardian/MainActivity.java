@@ -10,9 +10,17 @@ import android.location.LocationManager;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.view.Surface;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowInsets;
@@ -201,19 +209,84 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
+    /* 1.155: a REAL compass feed. The WebView's deviceorientation value on
+       Hilal's phone sits a constant ~90 degrees away from the direction the
+       phone's front actually faces (proven in the field 2026-11-24: facing
+       west 270, the dial read south 180). Android's own rotation-vector
+       sensor computes the azimuth properly, so the azimuth is computed
+       natively and pushed to window.__onAz; the page prefers it over
+       deviceorientation for the dial and both return arrows. */
+    private SensorManager smgr;
+    private Sensor rotSensor;
+    private float lastAz = -1f;
+    private final float[] rotMat = new float[9];
+    private final float[] remapped = new float[9];
+    private final float[] orient = new float[3];
+    private final SensorEventListener azListener = new SensorEventListener() {
+        @Override public void onSensorChanged(SensorEvent e) {
+            float az;
+            if (e.sensor.getType() == Sensor.TYPE_ORIENTATION) {
+                az = e.values[0];
+            } else {
+                SensorManager.getRotationMatrixFromVector(rotMat, e.values);
+                int rot = Surface.ROTATION_0;
+                try { rot = getWindowManager().getDefaultDisplay().getRotation(); } catch (Exception ignored) {}
+                int ax = SensorManager.AXIS_X, ay = SensorManager.AXIS_Y;
+                if (rot == Surface.ROTATION_90) { ax = SensorManager.AXIS_Y; ay = SensorManager.AXIS_MINUS_X; }
+                else if (rot == Surface.ROTATION_180) { ax = SensorManager.AXIS_MINUS_X; ay = SensorManager.AXIS_MINUS_Y; }
+                else if (rot == Surface.ROTATION_270) { ax = SensorManager.AXIS_MINUS_Y; ay = SensorManager.AXIS_X; }
+                SensorManager.remapCoordinateSystem(rotMat, ax, ay, remapped);
+                SensorManager.getOrientation(remapped, orient);
+                az = (float) Math.toDegrees(orient[0]);
+            }
+            if (az < 0) az += 360f;
+            if (lastAz >= 0) { float d = Math.abs(az - lastAz); if (d > 180) d = 360 - d; if (d < 1f) return; }
+            lastAz = az;
+            if (web == null) return;
+            final String js = "window.__onAz&&window.__onAz(" + az + ")";
+            web.post(() -> web.evaluateJavascript(js, null));
+        }
+        @Override public void onAccuracyChanged(Sensor s, int a) {}
+    };
+
     @Override protected void onResume() {
         super.onResume();
         G.setUiAlive(this, true);
-        try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 3, uiLoc); } catch (Exception ignored) {}
-        try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000, 5, uiLoc); } catch (Exception ignored) {}
+        try {
+            if (smgr == null) {
+                smgr = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+                rotSensor = smgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+                if (rotSensor == null) rotSensor = smgr.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+            }
+            if (rotSensor != null) smgr.registerListener(azListener, rotSensor, SensorManager.SENSOR_DELAY_UI);
+        } catch (Exception ignored) {}
+        registerLoc();
         pushLoc();
     }
     @Override protected void onPause() {
         super.onPause();
         G.setUiAlive(this, false);
+        try { if (smgr != null) smgr.unregisterListener(azListener); } catch (Exception ignored) {}
         try { lm.removeUpdates(uiLoc); } catch (Exception ignored) {}
     }
 
+    /* 1.168: smart location cadence — fast (1 s / 1 m) while the map is
+       open or guidance is active, relaxed on the other pages, so the
+       1.166 responsiveness does not tax the battery all day. The web
+       layer asks via GN.setLocFast. */
+    private boolean locFast = true;
+    private void registerLoc() {
+        try { lm.removeUpdates(uiLoc); } catch (Exception ignored) {}
+        try {
+            if (locFast) {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, uiLoc);
+                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000, 2, uiLoc);
+            } else {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 4000, 4, uiLoc);
+                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 8000, 8, uiLoc);
+            }
+        } catch (Exception ignored) {}
+    }
     private void pushLoc() {
         Location l = G.lastFix(this);
         if (l == null || web == null) return;
@@ -248,6 +321,12 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void setSalawatInterval(int m) { G.setSalawatMin(MainActivity.this, m); }
         @JavascriptInterface public void markSalawatPlayed() { G.setSalawatLast(MainActivity.this, System.currentTimeMillis()); }
+        @JavascriptInterface public void playBell() { G.playBellClip(MainActivity.this); }
+        @JavascriptInterface public void setLocFast(final boolean fast) {
+            if (fast == locFast) return;
+            locFast = fast;
+            runOnUiThread(() -> registerLoc());
+        }
         @JavascriptInterface public void uiPing() { G.uiPing(MainActivity.this); }
         @JavascriptInterface public void setImmersive(final boolean on) {
             runOnUiThread(() -> {
@@ -408,6 +487,24 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void openNetworkSettings() {
             try { startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)); }
             catch (Exception e) { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
+        }
+
+        /* 1.144: the project-repository row — opening hands the URL to
+           the phone's browser (this app itself holds no INTERNET
+           permission), copying puts it on the clipboard for sharing. */
+        @JavascriptInterface public void openRepo() {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/samshua284-gif/al-haris")));
+            } catch (Exception e) { /* no browser: the visible link text still serves */ }
+        }
+
+        @JavascriptInterface public void copyRepoLink() {
+            try {
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("al-haris",
+                        "https://github.com/samshua284-gif/al-haris"));
+            } catch (Exception e) { /* clipboard unavailable */ }
         }
 
         /* ---------- offline map packs ---------- */

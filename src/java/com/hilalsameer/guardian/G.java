@@ -121,6 +121,24 @@ public class G {
             if (am != null) am.cancel(salawatAlarmIntent(c));
         } catch (Exception ignored) {}
     }
+    /* 1.158: the pin bell — a soft chime when Hilal steps into a pin's zero
+       zone (his idea, 2026-11-24). Same asset-player pattern as the salawat
+       clip; a static guard keeps overlapping rings impossible. */
+    private static long sBellAt = 0;
+    public static void playBellClip(final Context c) {
+        try {
+            long now = System.currentTimeMillis();
+            if (now - sBellAt < 2500) return;
+            sBellAt = now;
+            android.content.res.AssetFileDescriptor afd = c.getAssets().openFd("www/bell.mp3");
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+            mp.setOnCompletionListener(m -> { try { m.release(); } catch (Exception ignored) {} });
+            mp.prepare();
+            mp.start();
+        } catch (Exception ignored) {}
+    }
     public static void playSalawatClip(final Context c) {
         try {
             android.content.res.AssetFileDescriptor afd = c.getAssets().openFd("www/salawat2.mp3");
