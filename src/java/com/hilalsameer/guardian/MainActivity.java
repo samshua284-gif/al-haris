@@ -14,6 +14,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -110,6 +113,27 @@ public class MainActivity extends Activity {
                                     p.get(1) + "/" + p.get(2) + "/" + p.get(3) + ".jpg");
                             if (f.exists() && f.length() > 0)
                                 return localResp("image/jpeg", new FileInputStream(f), 200);
+                            // 1.123: deep-zoom fallback — where no z16-18 detail tile was
+                            // downloaded, serve the z15 ancestor cropped + upscaled, so
+                            // the satellite layer stretches as before and never blanks.
+                            try {
+                                int z = Integer.parseInt(p.get(1)), x = Integer.parseInt(p.get(2)), y = Integer.parseInt(p.get(3));
+                                if (z > 15) {
+                                    int sh = z - 15, n = 1 << sh, cell = 256 / n;
+                                    File anc = new File(new File(new File(getFilesDir(), "tiles"), "sat"),
+                                            "15/" + (x >> sh) + "/" + (y >> sh) + ".jpg");
+                                    if (anc.exists() && anc.length() > 0) {
+                                        android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(anc.getPath());
+                                        if (bmp != null) {
+                                            android.graphics.Bitmap crop = android.graphics.Bitmap.createBitmap(bmp, (x & (n - 1)) * cell, (y & (n - 1)) * cell, cell, cell);
+                                            android.graphics.Bitmap up = android.graphics.Bitmap.createScaledBitmap(crop, 256, 256, true);
+                                            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                                            up.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, bos);
+                                            return localResp("image/jpeg", new ByteArrayInputStream(bos.toByteArray()), 200);
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
                             byte[] empty = android.util.Base64.decode(
                                     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAwMCAO+ip1sAAAAASUVORK5CYII=",
                                     android.util.Base64.DEFAULT);
@@ -211,6 +235,24 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setSalawatInterval(int m) { G.setSalawatMin(MainActivity.this, m); }
         @JavascriptInterface public void markSalawatPlayed() { G.setSalawatLast(MainActivity.this, System.currentTimeMillis()); }
         @JavascriptInterface public void uiPing() { G.uiPing(MainActivity.this); }
+        @JavascriptInterface public void setImmersive(final boolean on) {
+            runOnUiThread(() -> {
+                try {
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        WindowInsetsController c = getWindow().getInsetsController();
+                        if (c != null) {
+                            if (on) { c.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars()); c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); }
+                            else c.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                        }
+                    } else {
+                        View d = getWindow().getDecorView();
+                        d.setSystemUiVisibility(on
+                            ? View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            : View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+                    }
+                } catch (Exception e) {}
+            });
+        }
 
         @JavascriptInterface public void requestLocation() {
             runOnUiThread(() -> {
@@ -388,7 +430,7 @@ public class MainActivity extends Activity {
                     for (String layer : layers) {
                         if (aborted) break;
                         boolean vec = layer.equals("vec");
-                        int zMax = vec ? 13 : 15;
+                        int zMax = vec ? 13 : 18;
                         for (int z = 7; z <= zMax && !packCancel && !aborted; z++) {
                             int[] r = tileRange(lat, lng,
                                     vec ? radiusForZVec(radiusKm, z) : radiusForZSAT(radiusKm, z), z);
@@ -633,7 +675,7 @@ public class MainActivity extends Activity {
                 for (int x = r[0]; x <= r[1]; x++) for (int y = r[2]; y <= r[3]; y++)
                     out.add("tiles/vec/" + z + "/" + x + "/" + y + ".pbf");
             }
-            for (int z = 7; z <= 15; z++) {
+            for (int z = 7; z <= 18; z++) {
                 int[] r = tileRange(lat, lng, radiusForZSAT(radiusKm, z), z);
                 for (int x = r[0]; x <= r[1]; x++) for (int y = r[2]; y <= r[3]; y++)
                     out.add("tiles/sat/" + z + "/" + x + "/" + y + ".jpg");
@@ -748,16 +790,19 @@ public class MainActivity extends Activity {
     }
 
     /* Satellite depth: full pack radius to z13, then street-level detail near the centre —
-       z14 within 25 km, z15 within 10 km — so deep zoom stays readable (1.33). */
+       z14 within 25 km, z15 within 10 km — so deep zoom stays readable (1.33).
+       1.123: building-level detail z16-18 within 2 km of the centre — Esri serves
+       native imagery there (measured ~2.3x the detail of an upscaled parent). */
     static double radiusForZSAT(int radiusKm, int z) {
         if (z == 14) return Math.min(radiusKm, 25);
         if (z == 15) return Math.min(radiusKm, 10);
+        if (z >= 16) return Math.min(radiusKm, 2);
         return radiusForZ(radiusKm, z);
     }
 
     private int countTiles(double lat, double lng, int radiusKm, boolean vec) {
         int t = 0;
-        int zMax = vec ? 13 : 15;
+        int zMax = vec ? 13 : 18;
         for (int z = 7; z <= zMax; z++) {
             int[] r = tileRange(lat, lng, vec ? radiusForZVec(radiusKm, z) : radiusForZSAT(radiusKm, z), z);
             t += (r[1] - r[0] + 1) * (r[3] - r[2] + 1);

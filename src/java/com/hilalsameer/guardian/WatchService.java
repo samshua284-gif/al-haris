@@ -84,6 +84,7 @@ public class WatchService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        G.cancelSalawatAlarm(this);
         h.postDelayed(salawatTick, 60000);
         createChannel();
         startForeground(7, buildNotification("الحارس يراقب"));
@@ -138,6 +139,20 @@ public class WatchService extends Service {
     }
 
     @Override public int onStartCommand(Intent i, int flags, int id) { return START_STICKY; }
+
+    /* 1.111: swiping the app away from Recents stops the background watch
+       too (Hilal's order) — unless an SOS state needs the watcher, which
+       outranks tidiness. The salawat hands over to alarm mode so it still
+       arrives with no permanent background presence. Pressing Home or
+       locking the screen does NOT fire this: the watch stays, as before. */
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        if (!G.armed(this) && !G.safePending(this)) {
+            if (G.salawatOn(this)) G.scheduleSalawatAlarm(this);
+            stopForeground(true);
+            stopSelf();
+        }
+        super.onTaskRemoved(rootIntent);
+    }
     @Override public void onDestroy() {
         h.removeCallbacks(tick);
         h.removeCallbacks(salawatTick);

@@ -78,6 +78,47 @@ public class G {
     public static long salawatLast(Context c) { return p(c).getLong("salawat_last", 0); }
     public static void setSalawatLast(Context c, long t) { p(c).edit().putLong("salawat_last", t).apply(); }
 
+    /* Salawat alarm mode (1.111): when Hilal swipes the app away from
+       Recents, WatchService stops — his close means close — and the
+       prayer reminder moves to AlarmManager wake-ups: no permanent
+       background presence, yet the salawat still arrives on time. */
+    public static android.app.PendingIntent salawatAlarmIntent(Context c) {
+        android.content.Intent i = new android.content.Intent(c, SalawatAlarm.class);
+        return android.app.PendingIntent.getBroadcast(c, 41, i,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
+    }
+    public static void scheduleSalawatAlarm(Context c) {
+        if (!salawatOn(c)) return;
+        long next = salawatLast(c) + salawatMin(c) * 60000L;
+        long now = System.currentTimeMillis();
+        if (next <= now) next = now + 30000L;
+        android.app.AlarmManager am = (android.app.AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 31 && am.canScheduleExactAlarms())
+                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, next, salawatAlarmIntent(c));
+            else
+                am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, next, salawatAlarmIntent(c));
+        } catch (Exception ignored) {}
+    }
+    public static void cancelSalawatAlarm(Context c) {
+        try {
+            android.app.AlarmManager am = (android.app.AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) am.cancel(salawatAlarmIntent(c));
+        } catch (Exception ignored) {}
+    }
+    public static void playSalawatClip(final Context c) {
+        try {
+            android.content.res.AssetFileDescriptor afd = c.getAssets().openFd("www/salawat2.mp3");
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+            mp.setOnCompletionListener(m -> { try { m.release(); } catch (Exception ignored) {} });
+            mp.prepare();
+            mp.start();
+        } catch (Exception ignored) {}
+    }
+
     /** Warm location: last fix kept in prefs, refreshed by service/activity listeners. */
     public static void saveFix(Context c, Location l) {
         if (l == null) return;
@@ -110,16 +151,31 @@ public class G {
         return l;
     }
 
+    // 1.107: bidi armour. A mixed Arabic/Latin SMS is re-ordered by the
+    // RECEIVING phone's bidirectional algorithm: on 2026-11-24 Hilal's own
+    // SOS arrived scrambled (البطارية jumped ahead of موقعي, the % detached
+    // from its number). Each substituted value is wrapped in a first-strong
+    // isolate (U+2068..U+2069) so it travels as one indivisible unit in
+    // whichever direction its own content needs, "{bat}%" is isolated WITH
+    // its percent sign, and a message containing Arabic is prefixed with
+    // U+200F (RLM) so the paragraph direction is RTL on any phone.
+    private static String iso(String v) { return "\u2068" + v + "\u2069"; }
+
     public static String fillTemplate(Context c, String tpl) {
         Location l = lastFix(c);
         String loc = (l == null) ? "?" : String.format(Locale.US, "%.5f,%.5f",
                 l.getLatitude(), l.getLongitude());
         String time = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
         int bat = batteryPct(c);
-        return tpl.replace("{name}", name(c))
-                  .replace("{loc}", loc)
-                  .replace("{bat}", bat < 0 ? "?" : String.valueOf(bat))
-                  .replace("{time}", time);
+        String batS = bat < 0 ? "?" : String.valueOf(bat);
+        String out = tpl.replace("{bat}%", iso(batS + "%"))
+                  .replace("{name}", iso(name(c)))
+                  .replace("{loc}", iso(loc))
+                  .replace("{bat}", iso(batS))
+                  .replace("{time}", iso(time));
+        if (out.codePoints().anyMatch(cp -> cp >= 0x0600 && cp <= 0x06FF))
+            out = "\u200F" + out;
+        return out;
     }
 
     // 1.61: forced-fresh cell snapshot. getAllCellInfo() returns the system's
@@ -181,6 +237,14 @@ public class G {
     public static JSONObject signalJson(Context c) {
         ensureLiveCells(c);
         JSONObject out = new JSONObject();
+        // 1.103 (Hilal's discovery): Android withholds cell readings while
+        // system Location is OFF — the meter must say so, not sit silent.
+        try {
+            android.location.LocationManager lm = (android.location.LocationManager) c.getSystemService(Context.LOCATION_SERVICE);
+            boolean locOn = lm != null && (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+                    || lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER));
+            out.put("locOn", locOn);
+        } catch (Exception ignored) {}
         JSONObject lte = new JSONObject(), gsm = new JSONObject();
         boolean anyService = false;
         String carrier = "";

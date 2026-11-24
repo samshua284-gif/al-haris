@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.hilalsameer.guardian"
-    android:versionCode="103"
-    android:versionName="1.102">
+    android:versionCode="126"
+    android:versionName="1.125">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- INTERNET exists only for offline-map tile downloads (agreed 1.22). -->
 
     <application
@@ -49,5 +50,6 @@
         </receiver>
         <receiver android:name=".SmsDeliveredReceiver" android:exported="false"/>
         <receiver android:name=".SmsSentReceiver" android:exported="false"/>
+        <receiver android:name=".SalawatAlarm" android:exported="false"/>
     </application>
 </manifest>

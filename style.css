@@ -36,7 +36,7 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #sceneWrap.frozen #sceneBg{animation-play-state:paused}
 #caravan{position:absolute;inset:0}
 .camel{position:absolute;left:0;bottom:7px;background-repeat:no-repeat;will-change:transform,background-position;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
-.heroBar{position:absolute;bottom:0;right:0;left:0;padding:26px 15px 12px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(0deg,rgba(4,6,13,.66),transparent);color:#dbe6f5;font-size:13.5px}
+.heroBar{position:absolute;bottom:0;right:0;left:0;padding:26px 15px 4px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(0deg,rgba(4,6,13,.66),transparent);color:#dbe6f5;font-size:13.5px}
 #mapView{height:56vh;min-height:320px;border-radius:14px;background:#0d1420;direction:ltr;z-index:0}
 .maplibregl-map{font-family:inherit}
 .maplibregl-ctrl-attrib{font-size:9px}
@@ -49,8 +49,12 @@ h2{font-size:18px;color:#e8b84b;margin-bottom:10px}
 #packProgBar{height:100%;width:0;background:linear-gradient(90deg,#e8b84b,#57e389);transition:width .3s}
 .packR.sel{background:linear-gradient(180deg,#8a6a1d,#6d5312);border-color:#e8b84b;color:#ffeeb8;font-weight:700}
 .mapcard{padding-bottom:12px}
-.mapcard.fs{position:fixed;inset:0;z-index:90;border-radius:0;display:flex;flex-direction:column}
-.mapcard.fs #mapView{flex:1;height:auto;min-height:0}
+.mapcard.fs{position:fixed;inset:0;height:100dvh;z-index:90;border-radius:0;display:flex;flex-direction:column;padding:0;background:#04060d;overflow:hidden}
+body.mapfs{overflow:hidden}
+body.mapfs #tabbar{display:none}
+.mapcard.fs::before,.mapcard.fs::after{display:none}
+.mapcard.fs .row{padding:4px 8px}
+.mapcard.fs #mapView{flex:1;height:auto;min-height:0;border-radius:0}
 .mapcard.fs .cardHead,.mapcard.fs .dim,.mapcard.fs #locStatus,.mapcard.fs #mapStats{display:none}
 @keyframes flashB{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 2px #ffd977,0 0 22px rgba(255,217,119,.45)}}
 .card.flash{animation:flashB 1.4s ease}
@@ -95,6 +99,9 @@ textarea.inp{resize:vertical}
 .hidden{display:none!important}
 .placeRow,.flickRow{display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(6,10,20,.55);border:1px solid #22345a;border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:14.5px}
 .placeRow{cursor:pointer}
+.placeRow button.ren{background:#14202e;color:#bcd7ff;border:1px solid #2c4a6b}
+.placeRow .inp{flex:1}
+.retChip.sel{border-color:#c9a227;background:rgba(201,162,39,.14)}
 .placeRow button,.flickRow button{background:#2a1620;color:#ff9d94;border:1px solid #6b2b3a;border-radius:9px;padding:5px 11px;cursor:pointer;font-family:inherit}
 #arrowBox{text-align:center;min-width:96px}
 #arrowGlyph{font-size:43px;color:#7ee2a0;transition:transform .5s;display:inline-block;text-shadow:0 0 16px rgba(87,227,137,.5)}
@@ -130,20 +137,26 @@ button,.tab,.chip{-webkit-user-select:none;user-select:none;-webkit-touch-callou
    rotated by JS to the true bearing; the marker element itself is moved
    by MapLibre, so the rotation lives on the inner span. */
 .navArrow{width:0;height:0;pointer-events:none}
+.navTgt{width:36px;height:36px;border-radius:50%;border:3px solid #ffd76a;background:rgba(255,215,106,.16);display:flex;align-items:center;justify-content:center;pointer-events:none;animation:tgtPulse 1.6s ease-in-out infinite}
+.navTgt span{width:10px;height:10px;border-radius:50%;background:#ffd76a;box-shadow:0 0 6px #000}
+@keyframes tgtPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,106,.45)}50%{box-shadow:0 0 0 10px rgba(255,215,106,0)}}
 .navArrow span{display:block;width:34px;height:40px;margin:-20px 0 0 -17px;background:linear-gradient(180deg,#ffe27a,#ffb52e);clip-path:polygon(50% 0%,100% 100%,50% 74%,0% 100%);filter:drop-shadow(0 0 1.6px rgba(0,0,0,.9)) drop-shadow(0 2px 3px rgba(0,0,0,.55));transform-origin:50% 50%}
 
 /* salawat frame (1.97): persistent antique Islamic frame, top-right of the
    scene, carrying the interval chips (5/10/15/30 min) */
-#salawatBanner{position:absolute;top:2px;right:2px;z-index:6;direction:rtl;padding:6px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(10,46,34,.95),rgba(17,71,50,.95) 55%,rgba(9,36,26,.95));border:1px solid #c9a227;box-shadow:inset 0 0 0 3px rgba(10,40,28,.9),inset 0 0 0 4px rgba(201,162,39,.55),0 4px 14px rgba(0,0,0,.45);color:#f0d98c;cursor:pointer;transition:box-shadow .5s ease,opacity .5s ease}
+#salawatBanner{position:absolute;top:2px;right:7px;z-index:6;direction:rtl;padding:6px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(10,46,34,.95),rgba(17,71,50,.95) 55%,rgba(9,36,26,.95));border:1px solid #c9a227;box-shadow:inset 0 0 0 3px rgba(10,40,28,.9),inset 0 0 0 4px rgba(201,162,39,.55),0 4px 14px rgba(0,0,0,.45);color:#f0d98c;cursor:pointer;transition:box-shadow .5s ease,opacity .5s ease}
 #salawatBanner.off{opacity:.45}
 #salawatBanner.playing{box-shadow:inset 0 0 0 3px rgba(10,40,28,.9),inset 0 0 0 4px rgba(240,217,140,.95),0 0 22px rgba(216,180,90,.75)}
 #salawatBanner .sal-text{font-family:'Traditional Arabic','Amiri',serif;font-size:13.5px;font-weight:700;line-height:1.35;text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
-/* interval popup (1.98): springs from the frame, animated gold-to-orange border */
-#salawatPop{position:fixed;z-index:60;display:none;width:172px;padding:2px;border-radius:12px;background:linear-gradient(120deg,#c9a227,#e07b39,#f0d98c,#c9a227);background-size:300% 300%;animation:salGrad 3.5s ease infinite;box-shadow:0 10px 28px rgba(0,0,0,.55)}
-#salawatPop.open{display:block}
-@keyframes salGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.sal-pop-in{background:#0b2e21;border-radius:10px;padding:8px;direction:rtl}
-.sal-pop-t{color:#f0d98c;font-size:12.5px;font-weight:700;margin-bottom:6px;text-align:center}
+/* interval bar (1.104, Hilal's design): a small rectangle under
+   the sentence frame; its face shows the chosen interval and
+   opening it unfolds the remaining timings in place. */
+#salawatBar{position:absolute;right:2px;z-index:6;direction:rtl;display:flex;flex-direction:row;align-items:stretch;background:rgba(8,26,19,.92);border:1px solid rgba(201,162,39,.75);border-radius:7px;box-shadow:0 4px 12px rgba(0,0,0,.4);overflow:hidden}
+#salawatFace{background:none;border:none;color:#f0d98c;font-family:inherit;font-size:11.5px;font-weight:700;padding:3px 8px;cursor:pointer;white-space:nowrap}
+#salawatOpts{display:none;flex-direction:row;gap:3px;padding:2px 3px 2px 4px;align-items:center}
+#salawatBar.open #salawatOpts{display:flex}
+#salawatBar .sal-opt{margin:0;padding:2px 7px;font-size:11px;border-radius:6px;width:auto;white-space:nowrap}
+.autohint{color:#f0d98c;font-size:13px;line-height:1.7;margin:8px 0 2px}
 .sal-opt{display:block;width:100%;margin-top:4px;background:rgba(240,217,140,.08);color:#f0d98c;border:1px solid rgba(201,162,39,.6);border-radius:8px;padding:5px 0;font-size:13px;font-family:inherit;cursor:pointer}
 .sal-opt.sel{background:#c9a227;color:#12240f;font-weight:700}
 
