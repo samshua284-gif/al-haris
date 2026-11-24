@@ -120,6 +120,7 @@
   </section>
 
   <button id="btnSOS">🆘 استغاثة SOS</button>
+  <button id="btnSafeSend">✅ أنا بخير — ألغِ الاستغاثة</button>
 
   <section class="card" id="sosPanel">
     <div id="sosIdle">
@@ -209,13 +210,13 @@
       <select id="packCenter" class="inp grow"></select>
     </label>
     <div class="row">
-      <span class="dim">النطاق:</span>
+      <span class="dim">النطاق</span>
       <button class="btn small packR" data-r="25">٢٥ كم</button>
       <button class="btn small packR" data-r="50">٥٠ كم</button>
       <button class="btn small packR sel" data-r="500">٥٠٠ كم</button>
     </div>
     <p class="dim">حزمة ٥٠٠ كم «ذكية»: أدقّ التفاصيل قرب المركز، وتقلّ تدريجيًا كلما ابتعدت — فتبقى بحجم معقول بدل أكثر من غيغا.</p>
-    <p class="dim" id="packEst">…</p>
+    <p class="dim" dir="auto" id="packEst">…</p>
     <div id="packProgWrap" class="hidden">
       <div class="prog"><div id="packProgBar"></div></div>
       <p class="dim" id="packProgTxt"></p>
@@ -224,7 +225,7 @@
         <button class="btn small" id="btnDiscardPack" style="background:#3a2a10;border-color:#8a6a1d;color:#ffd977">إلغاء التنزيل (حذف ما نزل)</button>
       </div>
     </div>
-    <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق متجهية بأسماء عربية + أقمار)</button>
+    <button class="btn gold" id="btnDownloadPack">نزّل الحزمة (طرق متجهية + أقمار — أسماء الأماكن بلغة التطبيق)</button>
   </section>
 
   <section class="card">
@@ -268,7 +269,7 @@
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.141 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.143 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 </main>
 
 <main id="page-hunt" class="page">

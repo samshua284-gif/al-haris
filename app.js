@@ -39,10 +39,10 @@ const AR2EN={
 'طرق':'Roads','أقمار':'Satellite','🧭 اتجاهي':'🧭 My heading','◎ موقعي':'◎ My location','⛶ ملء الشاشة':'⛶ Fullscreen','→ عودة إلى الرئيسية':'→ Back to home',
 'تنزيل حزمة خرائط':'Download a map pack',
 'نزّل وأنت متصل بالإنترنت. إذن الإنترنت في هذا التطبيق للتنزيل وحده — الخريطة نفسها تعمل بلا اتصال.':'Download while you are online. Internet permission in this app is for downloading only — the map itself works offline.',
-'مركز الحزمة':'Pack centre','موقعي الحالي':'My current location','النطاق:':'Range:',
+'مركز الحزمة':'Pack centre','موقعي الحالي':'My current location','النطاق':'Range',
 '٢٥ كم':'25 km','٥٠ كم':'50 km','٥٠٠ كم':'500 km',
 'حزمة ٥٠٠ كم «ذكية»: أدقّ التفاصيل قرب المركز، وتقلّ تدريجيًا كلما ابتعدت — فتبقى بحجم معقول بدل أكثر من غيغا.':'The 500 km pack is "smart": finest detail near the centre, easing off as you go further — so it stays a reasonable size instead of over a gigabyte.',
-'نزّل الحزمة (طرق متجهية بأسماء عربية + أقمار)':'Download the pack (vector roads with Arabic names + satellite)',
+'نزّل الحزمة (طرق متجهية + أقمار — أسماء الأماكن بلغة التطبيق)':'Download the pack (vector roads + satellite — place names in the app language)',
 'إيقاف التنزيل (يبقى ما نزل)':'Stop download (keep what arrived)','إلغاء التنزيل (حذف ما نزل)':'Cancel download (delete what arrived)',
 'حزمي المنزّلة':'My downloaded packs','إيقاف التحديث':'Stop update',
 'مسح كل الخرائط المنزّلة':'Erase all downloaded maps','منارة وبطاقة هوية':'Beacon & ID card',
@@ -55,7 +55,8 @@ const AR2EN={
 '✅ تأكّد وصول رسالة الاستغاثة إلى هاتف المستقبِل (تقرير تسليم من الشبكة).':"✅ Confirm the SOS message reached the recipient's phone (a delivery report from the network).",
 'حفظ الإعداد':'Save settings','إعادة الضبط — مسح ما كتبتُه بيدي':'Reset — erase what I wrote by hand',
 'كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.':'Everything is stored on your phone only. No accounts, no servers, no internet.',
-'الحارس 1.141 — مشروع مجاني لكل إنسان، في كل بلد.':'The Guardian 1.141 — a free project for every human, in every country.',
+'الحارس 1.143 — مشروع مجاني لكل إنسان، في كل بلد.':'The Guardian 1.143 — a free project for every human, in every country.',
+'✅ أنا بخير — ألغِ الاستغاثة':'✅ I am fine — cancel the SOS',
 '🎯 وضع صيد الإشارة — امشِ واتبع القوة':'🎯 Signal hunt mode — walk and follow the strength',
 '2G — شبكة الاستغاثة':'2G — the SOS network',
 'الصيد يحتاج حركة: امشِ ١٠–٢٠ مترًا في اتجاه، وراقب المؤشّر، ثم جرّب اتجاهًا آخر وقارن.':'Hunting needs movement: walk 10–20 metres in one direction, watch the indicator, then try another direction and compare.',
@@ -440,6 +441,12 @@ $('btnSOS').onclick=()=>{
   if(state.armed&&GN&&GN.disarmSilent)GN.disarmSilent();
   GN&&GN.sendViaComposer&&GN.sendViaComposer();
   setTimeout(refresh,300);
+};
+$('btnSafeSend').onclick=()=>{
+  if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
+  // 1.142: the all-clear twin of the SOS button — opens the stock
+  // Messages composer with the safe template built; he sends it himself.
+  GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer();
 };
 function longPress(btn,fn){
   let timer=null,start=0;
@@ -1246,7 +1253,7 @@ function refreshPackEst(){
   if(!packDownloading)$('btnDownloadPack').disabled=false;
   try{
     const info=JSON.parse(GN.packInfo(c.lat,c.lng,packRadius));
-    $('packEst').textContent='≈ '+info.tiles+L(' عنصر (طرق متجهية + أقمار) · ≈ ',' items (vector roads + satellite) · ≈ ')+info.mb+L(' ميغا · المركز: ',' MB · centre: ')+c.name+L(' · النطاق ',' · range ')+packRadius+L(' كم',' km')+(info.glyphs?L(' · يشمل خطوط الأسماء العربية (~٥ ميغا، تُنزَّل مرة واحدة فقط)',' · includes the Arabic name fonts (~5 MB, downloaded once only)'):'');
+    $('packEst').textContent='≈ '+info.tiles+L(' عنصر (طرق متجهية + أقمار) · ≈ ',' items (vector roads + satellite) · ≈ ')+info.mb+L(' ميغا · المركز: ',' MB · centre: ')+c.name+L(' · النطاق ',' · range ')+packRadius+L(' كم',' km')+(info.glyphs?L(' · يشمل خطوط الأسماء (عربية ولاتينية) (~٥ ميغا، تُنزَّل مرة واحدة فقط)',' · includes the name fonts (Arabic and Latin) (~5 MB, downloaded once only)'):'');
   }catch(e){$('packEst').textContent=''}
 }
 function renderPacks(){

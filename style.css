@@ -94,6 +94,8 @@ textarea.inp{resize:vertical}
 .glabel{font-size:12.5px;color:#7ee2a0;min-height:17px}
 #btnSOS{display:block;width:100%;padding:21px;font-size:25px;font-weight:900;color:#fff;background:linear-gradient(180deg,#e0342b,#a11710);border:2px solid #ff7a6e;border-radius:19px;cursor:pointer;margin:4px 0 16px;box-shadow:0 6px 30px rgba(224,52,43,.45);font-family:inherit;position:relative;z-index:0}
 #btnSOS:active{transform:scale(.98)}
+#btnSafeSend{display:block;width:100%;padding:13px;font-size:17px;font-weight:800;color:#eafff3;background:linear-gradient(180deg,#1d7a4c,#14532d);border:1.5px solid #4ade80;border-radius:15px;cursor:pointer;margin:-6px 0 16px;font-family:inherit}
+#btnSafeSend:active{transform:scale(.98)}
 .armedText{color:#ff9d94;font-size:16.5px;font-weight:700;line-height:1.7}
 .sentText{color:#7ee2a0;font-size:16.5px;font-weight:700}
 .hidden{display:none!important}

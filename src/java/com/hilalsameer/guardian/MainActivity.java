@@ -386,6 +386,25 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
         }
 
+        /* 1.142 (Hilal's order): the all-clear gets the same honest
+           channel as the SOS — a button that opens the stock Messages
+           composer with the SAFE template built and addressed; his own
+           tap on Send there is the only send. Until now the safe text
+           had no living send path at all: its only sender was the
+           retired automatic bow (safe_pending), whose trigger state a
+           composer-sent SOS never sets. */
+        @JavascriptInterface public void sendSafeViaComposer() {
+            try {
+                java.util.List<String> rcpts = G.recipients(MainActivity.this);
+                if (rcpts.isEmpty()) return;
+                String addr = android.text.TextUtils.join(";", rcpts);
+                Intent i = new Intent(Intent.ACTION_SENDTO,
+                        android.net.Uri.parse("smsto:" + addr));
+                i.putExtra("sms_body", G.fillTemplate(MainActivity.this, G.safeTemplate(MainActivity.this)));
+                startActivity(i);
+            } catch (Exception ignored) {}
+        }
+
         @JavascriptInterface public void openNetworkSettings() {
             try { startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)); }
             catch (Exception e) { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
