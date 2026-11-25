@@ -427,40 +427,63 @@ function fixSane(l){
   }
   return true;
 }
-/* 1.158: a soft bell for every pin (Hilal's idea) — when he steps into a
-   pin's ZERO ZONE (the pin inside his own accuracy halo, at least 15 m,
-   at most 50 m) the bell rings ONCE; it re-arms only after he walks
-   25 m beyond the zone, so boundary jitter never repeats it. The active
-   navigation target and every saved place are watched. */
-let pinBellState={}, pinBellSeen={}, lastBellTs=0;
+/* ONE ARRIVAL LOGIC FOR ALL THREE SURFACES (1.183, Hilal's order,
+   2026-11-25 19:06): the map chip's green tag, the pin bell, and the
+   return arrow's release must obey a single rule — nothing fires at
+   departure, nothing fires while sitting; an arrival counts only as
+   a RETURN: the target must first have been left by a real margin
+   during this guidance, and then re-entered. Before 1.183 each
+   surface had its own logic: the bell (1.158/1.162) watched every
+   saved place and could ring for a place he merely passed or sat
+   beside, and releaseArrivedTarget cleared the arrow's selection
+   whenever he stood within 30 m of it — including the moment he
+   chose it while standing on it.
+   arrivTick(key, d, fireDist, armDist) is the single machine:
+   a fresh key starts unarmed and unarrived; d > armDist arms it;
+   entering d <= fireDist while armed FIRES once and latches
+   'arrived' until he leaves fireDist again. Each surface keeps its
+   own distances: chip tag 10/25, bell zone/zone+25, arrow
+   release 30/55. */
+let arrivState={};
+function arrivTick(key,d,fireDist,armDist){
+  let s=arrivState[key];
+  if(!s){arrivState[key]={armed:false,arrived:false};return{fired:false,arrived:false}}
+  let fired=false;
+  if(d>armDist){s.armed=true;s.arrived=false}
+  else if(d<=fireDist){
+    if(s.armed&&!s.arrived){s.arrived=true;s.armed=false;fired=true}
+  }else{s.arrived=false}
+  return{fired:fired,arrived:s.arrived};
+}
+let lastBellTs=0;
 function checkPinBells(){
   if(!myLoc)return;
-  // 1.162: the bell belongs to a JOURNEY, not to sitting in the app —
-  // Hilal reported it chiming on its own in the interface while he sat at
-  // his campsite, where both his pins are. Two rules: it rings only while
-  // guidance is active (a nav target or a journey pin is set), and only
-  // on a genuine ENTRY crossing — a session that starts inside a zone
-  // counts as already inside and stays silent until he leaves the zone
-  // (25 m past it) and truly returns.
-  const active=!!(navTarget||journeyPin);
+  // 1.183: the bell watches ONLY the points he is being guided back
+  // to — the nav target, the journey pin, the return arrow's chosen
+  // place (deduped by coordinates) — never every saved place, and
+  // it rings only on the shared machine's return-entry.
   const zone=Math.min(50,Math.max(15,(+myLoc.acc)||0));
-  const targets=[];
-  if(navTarget)targets.push({k:'nav:'+navTarget.lat.toFixed(5)+','+navTarget.lng.toFixed(5),lat:navTarget.lat,lng:navTarget.lng});
-  (state.places||[]).forEach(p=>targets.push({k:'p:'+p.lat.toFixed(5)+','+p.lng.toFixed(5),lat:p.lat,lng:p.lng}));
+  const seen={},targets=[];
+  const add=(lat,lng)=>{const k=lat.toFixed(5)+','+lng.toFixed(5);if(!seen[k]){seen[k]=1;targets.push({k:'bell:'+k,lat:lat,lng:lng})}};
+  if(navTarget)add(navTarget.lat,navTarget.lng);
+  if(journeyPin)add(journeyPin.lat,journeyPin.lng);
+  try{const at=arrowTargetObj();if(at)add(at.lat,at.lng)}catch(_){}
   targets.forEach(t=>{
     const d=hav(myLoc.lat,myLoc.lng,t.lat,t.lng);
-    if(!pinBellSeen[t.k]){pinBellSeen[t.k]=true;pinBellState[t.k]=(d<=zone);return}
-    if(d<=zone&&!pinBellState[t.k]){
-      pinBellState[t.k]=true;
-      if(active&&Date.now()-lastBellTs>=3000){lastBellTs=Date.now();try{GN&&GN.playBell&&GN.playBell()}catch(_){}}
-    }else if(d>zone+25&&pinBellState[t.k])pinBellState[t.k]=false;
+    const r=arrivTick(t.k,d,zone,zone+25);
+    if(r.fired&&Date.now()-lastBellTs>=3000){lastBellTs=Date.now();try{GN&&GN.playBell&&GN.playBell()}catch(_){}}
   });
 }
 function releaseArrivedTarget(){
   const sel=$('arrowTarget');
   if(!sel||!sel.value||sel.value[0]!=='p'||!myLoc)return;
   const t=arrowTargetObj();
-  if(t&&hav(myLoc.lat,myLoc.lng,t.lat,t.lng)<=30){sel.value='';startedOver=false}
+  if(!t)return;
+  // 1.183: release only on a genuine RETURN (the shared machine) —
+  // choosing a place while standing on it no longer self-clears.
+  const d=hav(myLoc.lat,myLoc.lng,t.lat,t.lng);
+  const r=arrivTick('rel:'+t.lat.toFixed(5)+','+t.lng.toFixed(5),d,30,55);
+  if(r.fired){sel.value='';startedOver=false}
 }
 window.__onLoc=l=>{if(l&&l.lat){if(!fixSane(l))return;if(courseFix&&hav(courseFix.lat,courseFix.lng,l.lat,l.lng)>=6){gpsCourse=brg(courseFix.lat,courseFix.lng,l.lat,l.lng);gpsCourseTs=Date.now();courseFix=l}else if(!courseFix)courseFix=l}myLoc=l;releaseArrivedTarget();renderArrow();renderPlaces();renderJourney();renderMapUser();renderLocStatus();updateNav();checkPinBells();renderCompass();applyHeadingUp();if(curPage==='map')refreshPackEst()}
 
@@ -1517,12 +1540,32 @@ function updateNav(){
     // now never leave; "arrived" is a small green tag under them that
     // appears only when he is truly on the pin (<=10 m), and the chip's
     // border alone takes a green tint.
-    const arrived=dd<=10;
+    // 1.182/1.183 (Hilal's field reports, 2026-11-25 18:44/19:06):
+    // the green "arrived" tag fired at DEPARTURE — he arms a target
+    // while standing on it, dd<=10, and the tag showed until he
+    // walked 10 m away. The tag now runs on the ONE shared arrival
+    // machine (arrivTick, see checkPinBells): it can appear only as
+    // a RETURN — away beyond 25 m first, then back within 10 m.
+    const arrived=arrivTick('tag:'+navTarget.lat.toFixed(5)+','+navTarget.lng.toFixed(5),dd,10,25).arrived;
     const tag=arrived?(' <span style="color:#7dff9e;font-size:.72em;display:block">'+(journeyPin?L('✓ عند الدبوس','✓ At the pin'):L('✓ وصلت إلى الدبوس','✓ Arrived'))+'</span>'):'';
     nd.style.borderColor=arrived?'rgba(61,255,122,.65)':'';
-    if(journeyPin){nd.innerHTML=L('البُعد عن الدبوس: ','From the pin: ')+chipDist(dd)+tag}
+    if(journeyPin){const lr2=lineRemaining();
+      // 1.183: the pin branch joins the same display system — the
+      // along-the-line figure rides as the secondary line here too
+      // (Hilal: "the direct system is not on the map screen" in pin
+      // mode). The pin counter itself keeps its name and meaning.
+      nd.innerHTML=L('البُعد عن الدبوس: ','From the pin: ')+chipDist(dd)+(lr2!=null?' <span style="opacity:.72;font-size:.72em;display:block">'+L('على الخط: ','On the line: ')+chipDist(lr2)+'</span>':'')+tag}
     else{const lr=lineRemaining();
-      if(lr!=null)nd.innerHTML=L('المتبقّي على الخط: ','Left on the line: ')+chipDist(lr)+' <span style="opacity:.72;font-size:.72em;display:block">'+L('مباشر ','direct ')+chipDist(dd)+'</span>'+tag;
+      // 1.182 (b): the DIRECT distance is the chip's main number in
+      // every mode — it reaches zero only when he stands on the
+      // point itself, and it can never "not appear" (his 18:44
+      // report: the small faint second line was effectively
+      // invisible to him in the field). The along-the-line figure
+      // (his 1.160 design) stays as the secondary line: a progress
+      // measure that may reach zero early when he walks level with
+      // the target while deviating sideways — now labelled as what
+      // it is, under the number that means distance-to-the-point.
+      if(lr!=null)nd.innerHTML=L('المتبقّي: ','Remaining: ')+chipDist(dd)+' <span style="opacity:.72;font-size:.72em;display:block">'+L('على الخط: ','On the line: ')+chipDist(lr)+'</span>'+tag;
       else nd.innerHTML=L('المتبقي: ','Remaining: ')+chipDist(dd)+tag}
     nd.style.display='block'}
   // 1.164: the free-floating gold dart (1.72's screen-space head) is

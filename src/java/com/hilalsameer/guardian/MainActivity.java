@@ -58,7 +58,16 @@ public class MainActivity extends Activity {
     private final LocationListener uiLoc = new LocationListener() {
         @Override public void onLocationChanged(Location l) {
             G.saveFix(MainActivity.this, l);
-            pushLoc();
+            /* 1.181: push THIS fix, not the cached one. Since 1.179
+               saveFix keeps the BEST fix for the flicker/record cache
+               and refuses merely-newer ones — but pushLoc() read that
+               same cache, so while walking, every live fix with
+               slightly worse accuracy than the cached best was
+               swallowed and the return-distance counter froze (the
+               owner's field report: stuck at 30/20 m, neither falling
+               nor rising). The cache keeps its gate for records; the
+               live feed now carries the fix that just arrived. */
+            pushLoc(l);
         }
         @Override public void onStatusChanged(String p, int s, Bundle e) {}
         @Override public void onProviderEnabled(String p) {}
@@ -67,8 +76,16 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        // 1.185: the manifest theme is the launch theme (dusk splash as the
+        // window background, shown by the system from the moment the icon
+        // is tapped until the first frame). Restore the stock theme now,
+        // before any view exists, so the running app is unchanged.
+        setTheme(android.R.style.Theme_Material_NoActionBar);
         requestPerms();
         web = new WebView(this);
+        // 1.185: any pre-paint moment of the WebView itself takes the
+        // page's own deep navy (#04060d), never black.
+        web.setBackgroundColor(0xFF04060D);
         WebSettings ws = web.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
@@ -288,7 +305,10 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
     private void pushLoc() {
-        Location l = G.lastFix(this);
+        pushLoc(G.lastFix(this));
+    }
+
+    private void pushLoc(Location l) {
         if (l == null || web == null) return;
         try {
             JSONObject o = new JSONObject();
