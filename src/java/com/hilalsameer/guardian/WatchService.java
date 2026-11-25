@@ -26,6 +26,11 @@ public class WatchService extends Service {
     private LocationManager lm;
     private MediaPlayer salPlayer;
     private boolean wasNoService = false;
+    /* 1.179: a flicker the accuracy gate refused (fix coarser than 300 m)
+       stays pending — retried on later ticks while the service lasts, so
+       the pin is planted by the first good fix instead of being lost. */
+    private boolean whisperPending = false;
+    private long whisperPendingSince = 0;
 
     private final LocationListener locListener = new LocationListener() {
         @Override public void onLocationChanged(Location l) { G.saveFix(WatchService.this, l); }
@@ -38,8 +43,14 @@ public class WatchService extends Service {
         @Override public void run() {
             boolean armed = G.armed(WatchService.this);
             boolean svc = G.hasService(WatchService.this);
-            if (svc && wasNoService) G.logWhisper(WatchService.this, "لمعة");
-            if (!svc) wasNoService = true; else wasNoService = false;
+            if (svc && (wasNoService || whisperPending)) {
+                if (G.logWhisper(WatchService.this, "لمعة")) { whisperPending = false; }
+                else {
+                    if (!whisperPending) whisperPendingSince = System.currentTimeMillis();
+                    whisperPending = System.currentTimeMillis() - whisperPendingSince < 900000L;
+                }
+            }
+            if (!svc) { wasNoService = true; whisperPending = false; } else wasNoService = false;
             G.tryFire(WatchService.this);
             updateNotification();
             h.postDelayed(this, armed ? 8000 : 30000);

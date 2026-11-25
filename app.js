@@ -301,7 +301,29 @@ function effHeading(){return (gpsCourse!=null&&Date.now()-gpsCourseTs<25000)?gps
 let azNative=null,azNativeTs=0;
 window.__onAz=a=>{if(isFinite(a)){azNative=+a;azNativeTs=Date.now();renderCompass();renderArrow();renderHomeArrow();applyHeadingUp();updatePtr()}};
 function phoneHeading(){return (azNative!=null&&Date.now()-azNativeTs<3000)?azNative:heading}
-function applyHeadingUp(){if(!headingUp||!mapObj)return;const eh=effHeading();if(eh==null)return;let d=lastBearingApplied==null?99:Math.abs(((eh-lastBearingApplied+540)%360)-180);if(d<3)return;lastBearingApplied=eh;try{mapObj.easeTo({bearing:eh,duration:250})}catch(e){}}
+let calmBeyondSince=0,calmBeyondDir=0;
+function applyHeadingUp(){if(!headingUp||!mapObj)return;const eh=effHeading();if(eh==null)return;
+  // 1.176 (Hilal asked why the map moves so much, then ruled: "if the
+  // map calms, the pointer calms" — the pointer counter-rotates against
+  // the map's bearing, so a swimming map swims it too). The old 3-deg
+  // deadband was crossed by every handheld wobble, so the map eased
+  // constantly. Now the applied bearing is a HELD reference: headings
+  // within 8 deg of it are shiver — the map holds perfectly still. A
+  // real turn re-aims by gliding the reference 35% of the arc per call,
+  // settling within the 8-deg band of his true front (invisible against
+  // 45-deg compass sectors).
+  if(lastBearingApplied==null){lastBearingApplied=eh;try{mapObj.easeTo({bearing:eh,duration:250})}catch(e){}return}
+  const err=((eh-lastBearingApplied+540)%360)-180;
+  if(Math.abs(err)<=8){calmBeyondSince=0;calmBeyondDir=0;return}
+  // A slow wander can sit beyond 8 deg too — so a re-aim must be PROVEN:
+  // the heading has to stay beyond the band, on the same side, for
+  // 600 ms before the map believes it is a real turn. Shiver flickers
+  // back inside the band and keeps resetting the proof.
+  const dir=err>0?1:-1,now=Date.now();
+  if(dir!==calmBeyondDir){calmBeyondDir=dir;calmBeyondSince=now;return}
+  if(now-calmBeyondSince<600)return;
+  lastBearingApplied=(lastBearingApplied+err*0.35+360)%360;
+  try{mapObj.easeTo({bearing:lastBearingApplied,duration:200})}catch(e){}}
 window.addEventListener('deviceorientation',e=>{if(e.alpha!=null){heading=360-e.alpha;renderArrow();renderHomeArrow();applyHeadingUp();renderCompass();updatePtr()}});
 
 /* ---------- SOS panels ---------- */
@@ -370,7 +392,11 @@ function refresh(){
   const modernTech=(sig.lte&&typeof sig.lte.level==='number')?'lte':((sig.nr&&typeof sig.nr.level==='number')?'nr':((sig.wcdma&&typeof sig.wcdma.level==='number')?'wcdma':'lte'));
   gauge('lte',modern,!!(sig.gsm&&typeof sig.gsm.level==='number'),'2G',modernTech);
   gauge('gsm',sig.gsm,!!(modern&&typeof modern.level==='number'),L('شبكة حديثة','a modern network'));
-  $('netState').textContent=(sig.carrier?(L('المشغّل: ','Carrier: ')+sig.carrier+' • '):'')+(sig.service?L('الخدمة متاحة الآن ✓','Service available now ✓'):L('لا خدمة الآن — الحارس يراقب','No service now — the Guardian is watching'))+(sig.camp?(L(' • مخيّم الآن على ',' • camped now on ')+sig.camp):'')+(typeof sig.battery==='number'&&sig.battery>=0?(L(' • البطارية ',' • battery ')+sig.battery+'%'):'')+freshTxt(sig.freshSec);
+  // 1.173: airplane mode gets its own truthful line — no service claim,
+  // no camp, and no «fresh measurement» stamp on a frozen snapshot.
+  $('netState').textContent=sig.airplane
+    ?(L('✈ وضع الطيران مفعّل — الإشارات مطفأة الآن','✈ Airplane mode is on — the radios are off now')+(typeof sig.battery==='number'&&sig.battery>=0?(L(' • البطارية ',' • battery ')+sig.battery+'%'):''))
+    :(sig.carrier?(L('المشغّل: ','Carrier: ')+sig.carrier+' • '):'')+(sig.service?L('الخدمة متاحة الآن ✓','Service available now ✓'):L('لا خدمة الآن — الحارس يراقب','No service now — the Guardian is watching'))+(sig.camp?(L(' • مخيّم الآن على ',' • camped now on ')+sig.camp):'')+(typeof sig.battery==='number'&&sig.battery>=0?(L(' • البطارية ',' • battery ')+sig.battery+'%'):'')+freshTxt(sig.freshSec);
   const _lo=$('sigLocOff');if(_lo)_lo.classList.toggle('hidden',sig.locOn!==false);
   renderSos();renderFlickers();renderPlaces();renderArrow();renderHome();updateMotion();renderReturnLists();
   if(uiLang==='en')applyStaticLang();
@@ -1189,7 +1215,30 @@ function openMapAt(lat,lng){
   const iv=setInterval(()=>{
     n++;
     if(mapObj){clearInterval(iv);
-      if(myLoc&&hav(myLoc.lat,myLoc.lng,lat,lng)>400)mapObj.fitBounds([[myLoc.lng,myLoc.lat],[lng,lat]],{padding:70,maxZoom:15});
+      /* 1.178 (Hilal, field verdict 2026-11-25 10:36): 1.177's zoom cap
+         did NOT cure the far-tap black screen, and his second screenshot
+         disproved the coverage theory — after pressing «موقعي» the SAME
+         frame painted fully, tiles and all. The one call that differs
+         between the broken path and every working path (near tap,
+         «موقعي») is fitBounds itself: on this WebView it settles the
+         camera without ever painting. So compute the fit with
+         cameraForBounds (same z14 cap / 110 padding as 1.177) but travel
+         with flyTo — the motion that has never failed him — then verify
+         on arrival that the target is truly inside the view; if it is
+         not, fly straight to the target. */
+      if(myLoc&&hav(myLoc.lat,myLoc.lng,lat,lng)>400){
+        let cam=null;
+        try{cam=mapObj.cameraForBounds([[myLoc.lng,myLoc.lat],[lng,lat]],{padding:110,maxZoom:14})}catch(e){}
+        if(cam&&cam.center)mapObj.flyTo({center:cam.center,zoom:Math.min(cam.zoom,14)});
+        else mapObj.flyTo({center:[lng,lat],zoom:14});
+        setTimeout(()=>{
+          if(!mapObj||curPage!=='map')return;
+          let inside=false;
+          try{inside=mapObj.getBounds().contains([lng,lat])}catch(e){}
+          if(!inside){try{mapObj.flyTo({center:[lng,lat],zoom:14})}catch(e){}}
+          try{mapObj.triggerRepaint()}catch(e){}
+        },1800);
+      }
       else mapObj.flyTo({center:[lng,lat],zoom:Math.max(mapObj.getZoom(),14)});
       updateNav();renderCompass();healMapSoon();}
     else if(n>24)clearInterval(iv);
@@ -1349,12 +1398,43 @@ function ptrHeading(){
   return phoneHeading();
 }
 let ptrGreen=false;
+let ptrSmooth=null, ptrKey='';
 function updatePtr(){
   const ptr=document.getElementById('mePtr');if(!ptr)return;
-  if(!navTarget||!myLoc||!mapObj){ptr.style.display='none';return}
+  if(!navTarget||!myLoc||!mapObj){ptr.style.display='none';ptrSmooth=null;ptrKey='';return}
   ptr.style.display='block';
   const tb=brg(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
-  ptr.style.transform='translate(-50%,-50%) rotate('+(tb-mapObj.getBearing())+'deg)';
+  // 1.170: glide the pointer's rotation — at 1 s fixes near a pin, raw
+  // bearing noise (metres of GPS wander against a few metres of range)
+  // twitched the line every second (Hilal: "the line is more disturbed
+  // now"). The displayed angle now advances only a fraction of the
+  // shortest arc per update, and a smaller fraction the closer he is,
+  // where bearing noise is largest. A new target resets the glide.
+  const key=navTarget.lat+','+navTarget.lng;
+  if(key!==ptrKey){ptrKey=key;ptrSmooth=null}
+  const raw=tb-mapObj.getBearing();
+  if(ptrSmooth==null)ptrSmooth=raw;
+  else{
+    const ddS=hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
+    let f=ddS<25?0.15:(ddS<60?0.25:0.4);
+    // 1.171: while he stands still, the raw angle is fed by a cold-shaken
+    // phone front and a heading-up map that keeps re-easing — the 1.170
+    // glide turned that jitter into a slow visible CIRCLING of the line
+    // around his dot (Hilal's report). Standing still now glides at 3%
+    // per update: shiver noise averages to near-stillness, while a
+    // deliberate turn still arrives within a couple of seconds because
+    // azimuth events fire many times a second.
+    const still=!(gpsCourse!=null&&Date.now()-gpsCourseTs<8000);
+    if(still){
+      // Two tiers: a LARGE error is a deliberate turn (glide 12%/update —
+      // its bulk lands within a second of azimuth events); a small one
+      // is shiver territory (5%/update — noise averages to ~2 deg).
+      const err=Math.abs(((raw-ptrSmooth+540)%360)-180);
+      f=Math.min(f,err>25?0.12:0.05);
+    }
+    ptrSmooth=(ptrSmooth+(((raw-ptrSmooth+540)%360)-180)*f+360)%360;
+  }
+  ptr.style.transform='translate(-50%,-50%) rotate('+ptrSmooth+'deg)';
   ptr.style.opacity=hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng)<=12?'.25':'1';
   // 1.165 (Hilal): the pointer's line carries his alignment signal — when
   // HIS heading (GPS course while walking, the phone's front while still)
@@ -1432,18 +1512,18 @@ function updateNav(){
   }
   const b=brg(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
   const nd=$('navDist');if(nd){const dd=hav(myLoc.lat,myLoc.lng,navTarget.lat,navTarget.lng);
-    const zone=Math.min(50,Math.max(15,(+myLoc.acc)||0));
-    if(dd<=zone){
-      // 1.168: the arrival state — the eye's confirmation of the bell.
-      nd.textContent=journeyPin?L('✓ أنت عند الدبوس','✓ You are at the pin'):L('✓ وصلت إلى الدبوس','✓ You have arrived');
-      nd.style.color='#7dff9e';nd.style.borderColor='rgba(61,255,122,.65)';
-    }else{
-      nd.style.color='';nd.style.borderColor='';
-      if(journeyPin){nd.textContent=L('البُعد عن الدبوس: ','From the pin: ')+chipDist(dd)}
-      else{const lr=lineRemaining();
-        if(lr!=null)nd.innerHTML=L('المتبقّي على الخط: ','Left on the line: ')+chipDist(lr)+' <span style="opacity:.72;font-size:.72em;display:block">'+L('مباشر ','direct ')+chipDist(dd)+'</span>';
-        else nd.textContent=L('المتبقي: ','Remaining: ')+chipDist(dd)}
-    }
+    // 1.169 (Hilal's correction of 1.168): the arrival tag fired at the
+    // 15 m zone and SWALLOWED the remaining-on-line number. The numbers
+    // now never leave; "arrived" is a small green tag under them that
+    // appears only when he is truly on the pin (<=10 m), and the chip's
+    // border alone takes a green tint.
+    const arrived=dd<=10;
+    const tag=arrived?(' <span style="color:#7dff9e;font-size:.72em;display:block">'+(journeyPin?L('✓ عند الدبوس','✓ At the pin'):L('✓ وصلت إلى الدبوس','✓ Arrived'))+'</span>'):'';
+    nd.style.borderColor=arrived?'rgba(61,255,122,.65)':'';
+    if(journeyPin){nd.innerHTML=L('البُعد عن الدبوس: ','From the pin: ')+chipDist(dd)+tag}
+    else{const lr=lineRemaining();
+      if(lr!=null)nd.innerHTML=L('المتبقّي على الخط: ','Left on the line: ')+chipDist(lr)+' <span style="opacity:.72;font-size:.72em;display:block">'+L('مباشر ','direct ')+chipDist(dd)+'</span>'+tag;
+      else nd.innerHTML=L('المتبقي: ','Remaining: ')+chipDist(dd)+tag}
     nd.style.display='block'}
   // 1.164: the free-floating gold dart (1.72's screen-space head) is
   // retired — Hilal found it unstable and designed its successor himself:
@@ -1510,7 +1590,7 @@ function renderCompass(){
 function renderJourney(){
   const nm=$('journeyName'),ds=$('journeyDist'),sm=$('journeySummary');
   if(!nm||!ds)return;
-  if(sm)sm.textContent=L('وظيفة هذه البطاقة: تعرض آخر مكان ثبّتّه. اضغط المكان فتبدأ رحلة على الخريطة من ذلك الدبوس بعدّاد يبدأ من الصفر — يزيد كلما ابتعدت عن الدبوس وينقص كلما رجعت إليه، والسهم الذهبي يرشدك إليه.','What this card does: it shows the last place you pinned. Tap the place and a journey starts on the map from that pin, with a counter that starts at zero — it grows as you walk away from the pin and shrinks as you return to it, while the gold dart guides you to it.');
+  if(sm)sm.textContent=L('وظيفة هذه البطاقة: تعرض آخر مكان ثبّتّه. اضغط المكان فتبدأ رحلة على الخريطة من ذلك الدبوس بعدّاد يبدأ من الصفر — يزيد كلما ابتعدت عن الدبوس وينقص كلما رجعت إليه، وخطٌّ صغير برأس أزرق ملتصق بدائرة زرقاء يرشدك إليه — أصفر عند الانحراف، وأخضر مضيء حين تتجه إلى المكان مستقيمًا.','What this card does: it shows the last place you pinned. Tap the place and a journey starts on the map from that pin, with a counter that starts at zero — it grows as you walk away from the pin and shrinks as you return to it, while a small line with a blue head, glued to a blue dot, guides you to it — yellow when you drift, glowing green when you head straight to the place.');
   const pl=state.places||[];
   if(!pl.length){nm.textContent=L('لا مكان مثبّت بعد','No pinned place yet');ds.textContent=L('ثبّت مكانك وسيظهر هنا','Pin your place and it will appear here');return}
   const p=pl[pl.length-1];

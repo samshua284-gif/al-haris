@@ -154,6 +154,22 @@ public class G {
     /** Warm location: last fix kept in prefs, refreshed by service/activity listeners. */
     public static void saveFix(Context c, Location l) {
         if (l == null) return;
+        /* 1.179 (Hilal's bound: "from zero at the phone to 300 m — it
+           captures the best signal"): the cache must hold the BEST fix,
+           not merely the newest. A coarse network guess (desert error of
+           hundreds of metres) may not overwrite a fresher accurate fix;
+           the cached fix yields only to a more accurate one, or when it
+           is over 5 minutes old. */
+        try {
+            SharedPreferences sp0 = p(c);
+            if (sp0.contains("last_lat")) {
+                float cAcc = sp0.getFloat("last_acc", 9999f);
+                long age = l.getTime() - sp0.getLong("last_loc_at", 0);
+                float nAcc = l.hasAccuracy() ? l.getAccuracy() : 9999f;
+                if (age < -60000L) return;
+                if (age < 300000L && nAcc > cAcc) return;
+            }
+        } catch (Exception ignored) {}
         p(c).edit()
             .putFloat("last_lat", (float) l.getLatitude())
             .putFloat("last_lng", (float) l.getLongitude())
@@ -283,12 +299,24 @@ public class G {
         JSONObject lte = new JSONObject(), gsm = new JSONObject();
         boolean anyService = false;
         String carrier = "";
+        // 1.173 (Hilal caught it live): in AIRPLANE MODE the meter kept
+        // showing the last pre-flight readings as live signal, green bars
+        // and «service available». The stale snapshot was believed twice
+        // over — the cached cell list (preferred for 2 min) still flags
+        // its cells isRegistered, which flipped anyService back to true.
+        // Airplane mode (and a radio reporting POWER_OFF) is unambiguous:
+        // the radios are off, so the meter now says exactly that.
+        boolean airplane = false;
+        try { airplane = android.provider.Settings.Global.getInt(c.getContentResolver(),
+                android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) != 0; } catch (Exception ignored) {}
+        try { out.put("airplane", airplane); } catch (Exception ignored) {}
+        int ssState = -1;
         try {
             TelephonyManager tm = (TelephonyManager) c.getSystemService(Context.TELEPHONY_SERVICE);
             carrier = tm.getNetworkOperatorName() == null ? "" : tm.getNetworkOperatorName();
             try {
                 ServiceState ss = tm.getServiceState();
-                if (ss != null && ss.getState() == ServiceState.STATE_IN_SERVICE) anyService = true;
+                if (ss != null) { ssState = ss.getState(); if (ssState == ServiceState.STATE_IN_SERVICE) anyService = true; }
             } catch (Exception ignored) {}
             List<CellInfo> cells = null;
             if (freshCells != null && System.currentTimeMillis() - freshAt < 120000) cells = freshCells;
@@ -326,6 +354,19 @@ public class G {
                         if (dbm > bestWcdmaDbm && dbm != Integer.MAX_VALUE) { bestWcdmaDbm = dbm; bestWcdmaLvl = s.getLevel(); }
                     }
                 }
+            }
+            boolean radioOff = airplane || ssState == ServiceState.STATE_POWER_OFF;
+            if (radioOff) {
+                // No readings exist while the radios are off — empty the
+                // tiles rather than dressing up the last snapshot as live.
+                bestLteLvl = -1; bestGsmLvl = -1; bestNrLvl = -1; bestWcdmaLvl = -1;
+                camp = ""; anyService = false;
+            } else if (ssState == ServiceState.STATE_OUT_OF_SERVICE
+                    || ssState == ServiceState.STATE_EMERGENCY_ONLY) {
+                // Neighbour dBm readings stay (they are the flicker hunt's
+                // value), but cached isRegistered flags must not claim
+                // service the radio itself denies.
+                anyService = false;
             }
             if (bestLteLvl >= 0) { lte.put("dbm", bestLteDbm); lte.put("level", bestLteLvl); }
             if (bestGsmLvl >= 0) { gsm.put("dbm", bestGsmDbm); gsm.put("level", bestGsmLvl); }
@@ -467,17 +508,55 @@ public class G {
     }
 
     /** Silent log of every spot where signal was glimpsed. */
-    public static void logWhisper(Context c, String kind) {
+    public static boolean logWhisper(Context c, String kind) {
         try {
             Location l = lastFix(c);
-            if (l == null) return;
+            if (l == null) return false;
+            /* 1.179 (Hilal's bound, 2026-11-25): an auto flicker is planted
+               only from a fix accurate to 300 m and no older than 10
+               minutes. Last night a network guess planted a pin ~300 m
+               from where he truly stood, on a compound he never entered —
+               the signal was real, the pin was the guess. Returns false
+               when the gate refuses, so the watcher can retry while the
+               service lasts and a better fix arrives. */
+            if ("لمعة".equals(kind)) {
+                float gAcc = l.hasAccuracy() ? l.getAccuracy() : 9999f;
+                long gAge = System.currentTimeMillis() - l.getTime();
+                if (gAcc > 300f || gAge > 600000L) return false;
+            }
             JSONObject sig = signalJson(c);
             JSONObject w = new JSONObject();
             w.put("lat", l.getLatitude()); w.put("lng", l.getLongitude());
             w.put("at", System.currentTimeMillis()); w.put("kind", kind);
+            w.put("acc", l.hasAccuracy() ? (int) l.getAccuracy() : -1);
+            /* 1.180 (Hilal: «اجعله يعمل على جميع الشبكات وخاصة 2G»): the
+               planter used to read only the LTE and GSM slots, LTE first —
+               a flicker caught while camped on 3G or 5G was logged with no
+               network and no dBm at all (his «شبكة dBm» row of 06:17), and
+               a faint LTE neighbour could mask the strong 2G he was
+               actually camped on. Now the CAMPED network's own reading is
+               recorded first; if it has none, the strongest reading across
+               all four networks wins; if no reading exists at all, the
+               camped network's name is still recorded. */
             JSONObject lte = sig.optJSONObject("lte"), gsm = sig.optJSONObject("gsm");
-            if (lte != null && lte.has("dbm")) { w.put("net", "4G"); w.put("dbm", lte.optInt("dbm")); }
-            else if (gsm != null && gsm.has("dbm")) { w.put("net", "2G"); w.put("dbm", gsm.optInt("dbm")); }
+            JSONObject nr = sig.optJSONObject("nr"), wcdma = sig.optJSONObject("wcdma");
+            String camp = sig.optString("camp", "");
+            JSONObject camped = "2G".equals(camp) ? gsm : "3G".equals(camp) ? wcdma
+                    : "5G".equals(camp) ? nr : "4G".equals(camp) ? lte : null;
+            JSONObject pick = null; String pickNet = null;
+            if (camped != null && camped.has("dbm")) { pick = camped; pickNet = camp; }
+            else {
+                JSONObject[] all = { lte, nr, wcdma, gsm };
+                String[] names = { "4G", "5G", "3G", "2G" };
+                int bestDbm = Integer.MIN_VALUE;
+                for (int i = 0; i < all.length; i++) {
+                    if (all[i] != null && all[i].has("dbm") && all[i].optInt("dbm") > bestDbm) {
+                        bestDbm = all[i].optInt("dbm"); pick = all[i]; pickNet = names[i];
+                    }
+                }
+            }
+            if (pick != null) { w.put("net", pickNet); w.put("dbm", pick.optInt("dbm")); }
+            else if (!camp.isEmpty()) { w.put("net", camp); }
             JSONArray arr = new JSONArray(sp(c).getString("whispers", "[]"));
             // Dedupe (1.35): skip a sample that repeats the newest one within 60 s
             // and ~30 m with the same network — service callbacks can fire together.
@@ -487,12 +566,13 @@ public class G {
                         && System.currentTimeMillis() - last.optLong("at") < 60000
                         && Math.abs(last.optDouble("lat") - l.getLatitude()) < 0.0003
                         && Math.abs(last.optDouble("lng") - l.getLongitude()) < 0.0003
-                        && last.optString("net").equals(w.optString("net"))) return;
+                        && last.optString("net").equals(w.optString("net"))) return true;
             }
             arr.put(w);
             while (arr.length() > 300) arr.remove(0);
             sp(c).edit().putString("whispers", arr.toString()).apply();
-        } catch (Exception ignored) {}
+            return true;
+        } catch (Exception ignored) { return false; }
     }
     private static SharedPreferences sp(Context c) { return p(c); }
 }
