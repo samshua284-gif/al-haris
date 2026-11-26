@@ -545,10 +545,18 @@ $('btnHuntForce').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNetSettings').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNearestFlicker').onclick=()=>{
   $('arrowTarget').value='w';renderArrow();
-  const card=$('arrowCard');
-  if(card){card.scrollIntoView({behavior:'smooth',block:'center'});
-    card.classList.remove('flash');void card.offsetWidth;card.classList.add('flash');
-    setTimeout(()=>card.classList.remove('flash'),1500);}
+  // 1.191 (Hilal's field report, 2026-11-26 20:30): pressing this
+  // button did NOTHING visible — its old body scrolled to $('arrowCard'),
+  // an element removed from the page long ago (1.154), so the tap only
+  // re-armed the return arrow on another page in silence. The button
+  // now does what its label promises, the same way a flicker row does
+  // (1.99): open the map at the nearest known flicker and guide to it,
+  // reusing arrowTargetObj's own nearest computation. When there is
+  // nothing to guide to (no located flicker yet, or his location has
+  // not arrived) it says so in an alert — never silence again.
+  const t=arrowTargetObj();
+  if(t)openMapAt(t.lat,t.lng);
+  else alert(L('لا لمعة بموقع معروف بعد، أو موقعك لم يصل بعد — جرّب بعد ثوانٍ','No flicker with a known location yet, or your location has not arrived yet — try again in a few seconds'));
 };
 $('btnSOS').onclick=()=>{
   if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
