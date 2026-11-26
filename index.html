@@ -28,7 +28,7 @@
   </header>
 
   <section class="card scenecard">
-    <div id="sceneWrap"><img id="sceneBg" alt=""><div id="caravan"></div>
+    <div id="sceneWrap"><img id="sceneBg" src="scene.jpg" alt=""><div id="caravan"></div>
       <div class="heroBar">
         <span id="animState">قافلتك تمشي…</span>
       </div>
@@ -100,7 +100,6 @@
     </div>
     <p class="dim">اضغط السهم لعرض الهدف على الخريطة، واتبع إشارة السهم إلى مكانك.</p>
     <div class="row">
-      <button id="btnStartOverH" class="btn grow">🔄 البدء من جديد</button>
       <button id="btnReturnPickH" class="btn gold grow">↩ العودة إلى مكان مثبّت</button>
     </div>
     <div id="homeReturnList" style="display:none"></div>
@@ -145,8 +144,6 @@
 <main id="page-places" class="page">
   <section class="card">
     <h2>أماكن محفوظة</h2>
-    <div id="placesList"></div>
-    <p class="dim">اضغط أي مكان محفوظ لعرضه على الخريطة.</p>
     <div class="row">
       <input id="placeName" class="inp grow" placeholder="اسم المكان هنا (مخيم، بئر، محطة…)" data-ph-ar="اسم المكان هنا (مخيم، بئر، محطة…)" data-ph-en="Place name here (camp, well, station…)">
       <button class="btn" id="btnAddPlace">ثبّت مكاني</button>
@@ -265,7 +262,7 @@
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.183 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.190 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 
   <section class="repoCard">
     <div class="repoTitle">مستودع المشروع على GitHub</div>
@@ -321,7 +318,6 @@
   </div>
 </div>
 <script src="art.js"></script>
-<script src="maplibre-gl.js"></script>
 <script src="style.js"></script>
 <script src="app.js"></script>
 </body>

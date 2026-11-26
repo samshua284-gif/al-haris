@@ -22,7 +22,7 @@ const AR2EN={
 'سهم اتجاه العودة':'Return direction arrow','المكان المثبّت الجديد':'Newest pinned place',
 'اضغط السهم لعرض الهدف على الخريطة، واتبع إشارة السهم إلى مكانك.':'Tap the arrow to show the target on the map, and follow the arrow back to your place.',
 '🔄 البدء من جديد':'🔄 Start over','↩ العودة إلى مكان مثبّت':'↩ Return to a pinned place',
-'«البدء من جديد» يمسح هدف العودة ويوقف الإرشاد. و«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.':'"Start over" clears the return target and stops guidance. "Return to a pinned place" opens your saved places under their current names — pick one and the arrow points to it; tap the arrow itself to show it on the map.',
+'«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.':'"Return to a pinned place" opens your saved places under their current names — pick one and the arrow points to it; tap the arrow itself to show it on the map.',
 '🆘 استغاثة SOS':'🆘 SOS',
 'زرّ الاستغاثة يفتح تطبيق رسائلك ورسالتك مبنية كاملة بموقعك الحي — تضغط «إرسال» هناك مرة واحدة. لا يُرسَل شيء تلقائيًا من هنا.':'The SOS button opens your Messages app with your message fully built with your live location — you tap "Send" there once. Nothing is sent automatically from here.',
 '📩 افتحها في تطبيق الرسائل — إرسال مضمون من هاتفك':'📩 Open it in Messages — sending guaranteed from your phone',
@@ -162,9 +162,23 @@ function chipDist(m){return m<1000?Math.round(m/5)*5+L(' م',' m'):(m<10000?(m/1
 /* ---------- places & arrow ---------- */
 function renderHome(){
   const pl=state.places||[];const hp=$('homePlaces');
-  if(hp){
+  if(hp&&!placeEditOpen){
     if(!pl.length)hp.innerHTML='<p class="dim">'+L('لا أماكن بعد — ثبّت أماكنك من تبويب «الأماكن» فتظهر هنا.','No places yet — pin your places from the Places tab and they will appear here.')+'</p>';
-    else{hp.innerHTML='';pl.slice(0,3).forEach(p=>{const d=document.createElement('div');d.className='placeRow';const dist=myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'';d.innerHTML='<span>📍 <b>'+p.name+'</b> <span class="dim">'+dist+'</span></span>';d.onclick=()=>openMapAt(p.lat,p.lng);hp.appendChild(d)})}
+    else{hp.innerHTML='';pl.forEach((p,i)=>{const d=document.createElement('div');d.className='placeRow';const dist=myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'';d.innerHTML='<span>📍 <b>'+p.name+'</b> <span class="dim">'+dist+'</span></span>';
+    d.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;unhidePlace(p);openMapAt(p.lat,p.lng)};
+    /* 1.189 (Hilal): Saved Places on the Home page is the one home of
+       renaming and deletion — every place is managed here, the newest
+       pin included. The map itself can only hide (see renderMapPlaces). */
+    const ren=document.createElement('button');ren.textContent=L('تسمية','Rename');ren.className='ren';
+    ren.onclick=()=>{placeEditOpen=true;
+      const inp=document.createElement('input');inp.className='inp';inp.value=p.name;
+      const save=document.createElement('button');save.textContent=L('حفظ','Save');save.className='ren';
+      d.innerHTML='';d.appendChild(inp);d.appendChild(save);inp.focus();inp.select();
+      save.onclick=()=>{placeEditOpen=false;const nn=inp.value.trim();if(nn&&nn!==p.name){p.name=nn;GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;try{renderMapPlaces()}catch(_){}}renderPlaces();renderArrow()};
+    };
+    const del=document.createElement('button');del.textContent=L('حذف','Delete');
+    del.onclick=()=>{pl.splice(i,1);GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;renderPlaces();renderArrow()};
+    d.appendChild(ren);d.appendChild(del);hp.appendChild(d)})}
   }
   renderHomeArrow();
 }
@@ -192,7 +206,7 @@ let _selSig='';let placeEditOpen=false;
 function renderPlaces(){
   renderHome();renderJourney();
   if(placeEditOpen)return;
-  const list=$('placesList');const pl=state.places||[];
+  const pl=state.places||[];
   const sel=$('arrowTarget');
   // 1.96: rebuild the target menu ONLY when its options truly change, and
   // never while it is open — rebuilding it every refresh/location fix made
@@ -206,24 +220,13 @@ function renderPlaces(){
     if((state.whispers||[]).length){const o=document.createElement('option');o.value='w';o.textContent=L('📶 أقرب لمعة معروفة','📶 Nearest known flicker');sel.appendChild(o)}
     if(cur)sel.value=cur;
   }
-  if(!pl.length){list.innerHTML='<p class="dim">'+L('لا أماكن بعد — التطبيق يبدأ فارغًا تمامًا لأي إنسان في أي بلد، وأنت تثبّت أماكنك بنفسك.','No places yet — the app starts completely empty for any person in any country; you pin your own places yourself.')+'</p>';return}
-  list.innerHTML='';
-  pl.forEach((p,i)=>{
-    const d=document.createElement('div');d.className='placeRow';
-    const dist=myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'';
-    d.innerHTML='<span><b>'+p.name+'</b> <span class="dim">'+dist+'</span></span>';
-    d.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;const sel=$('arrowTarget');if(sel)sel.value='p'+i;startedOver=false;journeyPin=null;openMapAt(p.lat,p.lng);renderArrow();renderHomeArrow()};
-    const ren=document.createElement('button');ren.textContent=L('تسمية','Rename');ren.className='ren';
-    ren.onclick=()=>{placeEditOpen=true;
-      const inp=document.createElement('input');inp.className='inp';inp.value=p.name;
-      const save=document.createElement('button');save.textContent=L('حفظ','Save');save.className='ren';
-      d.innerHTML='';d.appendChild(inp);d.appendChild(save);inp.focus();inp.select();
-      save.onclick=()=>{placeEditOpen=false;const nn=inp.value.trim();if(nn&&nn!==p.name){p.name=nn;GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;try{renderMapPlaces()}catch(_){}}renderPlaces();renderArrow()};
-    };
-    const del=document.createElement('button');del.textContent=L('حذف','Delete');
-    del.onclick=()=>{pl.splice(i,1);GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;renderPlaces();renderArrow()};
-    d.appendChild(ren);d.appendChild(del);list.appendChild(d);
-  });
+  /* 1.190 (Hilal, correcting 1.189): NO places list on this page at
+     all — nothing may sit above the pin box. The newest pin lives
+     in its card below («المكان المثبّت الجديد», renderJourney);
+     every earlier pin is an ordinary saved place: it shows on the
+     map and in Saved Places on the Home page, where renaming and
+     deletion live. This function now only keeps the hidden
+     return-target menu in sync and re-renders Home + Journey. */
 }
 function arrowTargetObj(){
   const v=$('arrowTarget').value;
@@ -272,7 +275,7 @@ function renderReturnLists(){
       d.innerHTML='<span>'+label+' <span class="dim">'+dist+'</span></span>';
       d.onclick=()=>{if(sel)sel.value=val;startedOver=false;renderArrow();renderHomeArrow();
         if(val==='w'){const t=arrowTargetObj();if(t)openMapAt(t.lat,t.lng);else openMap()}
-        else{const p=pl[+val.slice(1)];if(p)openMapAt(p.lat,p.lng)}
+        else{const p=pl[+val.slice(1)];if(p){unhidePlace(p);openMapAt(p.lat,p.lng)}}
         renderReturnLists()};
       box.appendChild(d);
     };
@@ -280,20 +283,13 @@ function renderReturnLists(){
     if((state.whispers||[]).length)mk(L('📶 <b>أقرب لمعة معروفة</b>','📶 <b>Nearest known flicker</b>'),'','w');
   });
 }
-function startOver(){
-  const sel=$('arrowTarget');if(sel)sel.value='';
-  startedOver=true;
-  journeyPin=null;
-  navLine=null;
-  navTarget=null;locCadence();try{updateNav()}catch(_){}
-  renderArrow();renderHomeArrow();renderReturnLists();
-  openMap();
-  if(myLoc&&mapObj){try{mapObj.easeTo({center:[myLoc.lng,myLoc.lat],zoom:Math.max(mapObj.getZoom(),15)})}catch(_){}}
-}
-[['btnStartOverH',startOver],
- ['btnReturnPickH',()=>{returnListOpen=!returnListOpen;renderReturnLists()}]
+/* 1.189 (Hilal): the «البدء من جديد» button is deleted — it only threw
+   him to the map without the zero counter, so it earned nothing. The
+   startedOver flag remains declared (always false now) for the arrow
+   renderers that read it. */
+[['btnReturnPickH',()=>{returnListOpen=!returnListOpen;renderReturnLists()}]
 ].forEach(([id,fn])=>{const b=$(id);if(b)b.onclick=fn});
-const jpEl=$('journeyPlace');if(jpEl)jpEl.onclick=()=>{const pl=state.places||[];if(!pl.length)return;const p=pl[pl.length-1];journeyPin={lat:p.lat,lng:p.lng};openMapAt(p.lat,p.lng)};
+const jpEl=$('journeyPlace');if(jpEl)jpEl.onclick=()=>{const pl=state.places||[];if(!pl.length)return;const p=pl[pl.length-1];journeyPin={lat:p.lat,lng:p.lng};unhidePlace(p);openMapAt(p.lat,p.lng)};
 $('homeArrowGlyph').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 $('homeArrowText').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 let headingUp=false,lastBearingApplied=null,courseFix=null,gpsCourse=null,gpsCourseTs=0;
@@ -626,7 +622,7 @@ function showPage(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===name));
   window.scrollTo(0,0);
   locCadence();
-  if(name==='map')setTimeout(initMap,60);
+  if(name==='map')ensureMapLib();
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showPage(t.dataset.page)));
 
@@ -1293,6 +1289,20 @@ function satStyle(){
 function refreshMapStyle(){
   if(mapObj)mapObj.setStyle(localizeStyle(mapSatMode?satStyle():window.MAP_STYLE_ROADS));
 }
+/* 1.189: the map engine (803 KB of code) no longer rides the startup
+   script chain — the home scene starts without waiting for it. The
+   engine loads the first time the map page is opened; initMap keeps
+   its own absence guard as the safety net. */
+let _mapLibState=0;
+function ensureMapLib(){
+  if(window.maplibregl){setTimeout(initMap,60);return}
+  if(_mapLibState===1){const iv=setInterval(()=>{if(window.maplibregl){clearInterval(iv);setTimeout(initMap,60)}},120);return}
+  _mapLibState=1;
+  const sc=document.createElement('script');sc.src='maplibre-gl.js';
+  sc.onload=()=>{_mapLibState=2;setTimeout(initMap,60)};
+  sc.onerror=()=>{_mapLibState=0;setTimeout(initMap,60)};
+  document.body.appendChild(sc);
+}
 function initMap(){
   if(!GN)return;
   if(!window.maplibregl||!window.MAP_STYLE_ROADS){
@@ -1335,10 +1345,20 @@ function setMapLayer(sat){
   $('btnLayerRoads').classList.toggle('gold',!sat);
   $('btnLayerSat').classList.toggle('gold',sat);
 }
+/* 1.189 (Hilal's rule): the map can only HIDE a place — deletion lives
+   in Saved Places alone. A hidden place stays saved; showing it again
+   from any saved list brings it back onto the map. */
+function unhidePlace(p){
+  if(!p||!p.hidden)return;
+  p.hidden=false;
+  GN&&GN.savePlaces(JSON.stringify(state.places||[]));
+  try{renderMapPlaces()}catch(_){}
+}
 function renderMapPlaces(){
   if(!mapObj||placeEditOpen)return;
   mapMarkers.forEach(m=>m.remove());mapMarkers=[];
   (state.places||[]).forEach(p=>{
+    if(p.hidden)return;
     const el=document.createElement('div');el.className='pin';el.textContent='📍';
     const pop=new maplibregl.Popup({offset:20,closeButton:false,closeOnClick:true,maxWidth:'250px'});
     const dv=document.createElement('div');dv.className='pinPop';
@@ -1360,7 +1380,7 @@ function renderMapPlaces(){
           const arr=(state.places||[]).slice();
           let idx=arr.findIndex(q=>q.name===p.name&&q.lat===p.lat&&q.lng===p.lng);
           if(idx<0)idx=arr.indexOf(p);
-          if(idx>=0){arr[idx]={name:nn,lat:p.lat,lng:p.lng};GN&&GN.savePlaces(JSON.stringify(arr));state.places=arr}
+          if(idx>=0){arr[idx]={name:nn,lat:p.lat,lng:p.lng,hidden:!!p.hidden};GN&&GN.savePlaces(JSON.stringify(arr));state.places=arr}
         }
         try{pop.remove()}catch(_){}
         try{renderMapPlaces()}catch(_){}
@@ -1369,17 +1389,18 @@ function renderMapPlaces(){
       });
     });
     dv.appendChild(ren);
-    const del=document.createElement('button');del.className='pinDel';del.textContent=L('✕ حذف هذا المكان','✕ Delete this place');
+    const del=document.createElement('button');del.className='pinDel';del.textContent=L('إخفاء من الخريطة','Hide from map');
     del.addEventListener('click',e=>{
-      // 1.82 fix (Hilal: popup delete did nothing): remove exactly one place
-      // matched by VALUE (name+coords) with a reference fallback, stop the tap
-      // from reaching the map, and re-render the pins FIRST so a later render
-      // error can never strand the deleted pin on the map.
+      // 1.189 (Hilal): this button used to DELETE the place; now the map
+      // only hides it — matched by VALUE (name+coords) with a reference
+      // fallback, exactly like the old delete. The place stays saved;
+      // deletion lives in Saved Places alone, and showing the place
+      // from a saved list un-hides it.
       e.stopPropagation();e.preventDefault();
       const arr=(state.places||[]).slice();
       let idx=arr.findIndex(q=>q.name===p.name&&q.lat===p.lat&&q.lng===p.lng);
       if(idx<0)idx=arr.indexOf(p);
-      if(idx>=0)arr.splice(idx,1);
+      if(idx>=0)arr[idx]={name:p.name,lat:p.lat,lng:p.lng,hidden:true};
       GN&&GN.savePlaces(JSON.stringify(arr));state.places=arr;
       try{pop.remove()}catch(_){}
       try{renderMapPlaces()}catch(_){}
