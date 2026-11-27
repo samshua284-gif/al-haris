@@ -509,9 +509,19 @@ public class G {
 
     /** Silent log of every spot where signal was glimpsed. */
     public static boolean logWhisper(Context c, String kind) {
+        int r = logWhisperEx(c, kind);
+        return r == 0 || r == 1;
+    }
+
+    /* 1.193: the same log, but reporting WHY — a manual press used to
+       vanish into silence (added, duplicate and refused all looked
+       identical: nothing happened), so Hilal read the button as broken.
+       Codes: 0 = added, 1 = duplicate of the newest (<60 s, ~30 m, same
+       network), 2 = no location fix yet, 3 = error, 4 = auto-gate refusal. */
+    public static int logWhisperEx(Context c, String kind) {
         try {
             Location l = lastFix(c);
-            if (l == null) return false;
+            if (l == null) return 2;
             /* 1.179 (Hilal's bound, 2026-11-25): an auto flicker is planted
                only from a fix accurate to 300 m and no older than 10
                minutes. Last night a network guess planted a pin ~300 m
@@ -522,7 +532,7 @@ public class G {
             if ("لمعة".equals(kind)) {
                 float gAcc = l.hasAccuracy() ? l.getAccuracy() : 9999f;
                 long gAge = System.currentTimeMillis() - l.getTime();
-                if (gAcc > 300f || gAge > 600000L) return false;
+                if (gAcc > 300f || gAge > 600000L) return 4;
             }
             JSONObject sig = signalJson(c);
             JSONObject w = new JSONObject();
@@ -566,13 +576,13 @@ public class G {
                         && System.currentTimeMillis() - last.optLong("at") < 60000
                         && Math.abs(last.optDouble("lat") - l.getLatitude()) < 0.0003
                         && Math.abs(last.optDouble("lng") - l.getLongitude()) < 0.0003
-                        && last.optString("net").equals(w.optString("net"))) return true;
+                        && last.optString("net").equals(w.optString("net"))) return 1;
             }
             arr.put(w);
             while (arr.length() > 300) arr.remove(0);
             sp(c).edit().putString("whispers", arr.toString()).apply();
-            return true;
-        } catch (Exception ignored) { return false; }
+            return 0;
+        } catch (Exception ignored) { return 3; }
     }
     private static SharedPreferences sp(Context c) { return p(c); }
 }

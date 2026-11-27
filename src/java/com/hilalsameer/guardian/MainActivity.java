@@ -438,7 +438,7 @@ public class MainActivity extends Activity {
             G.tryFire(MainActivity.this);
         }
 
-        @JavascriptInterface public void addWhisper() { G.logWhisper(MainActivity.this, "يدوي"); }
+        @JavascriptInterface public String addWhisper() { return String.valueOf(G.logWhisperEx(MainActivity.this, "يدوي")); }
 
         @JavascriptInterface public void beacon(boolean on) {
             runOnUiThread(() -> {

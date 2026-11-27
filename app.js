@@ -18,7 +18,7 @@ const AR2EN={
 '📍 قوة الإشارة تنتظر تشغيل الموقع — أندرويد يحجب قراءات الأبراج والموقع مغلق.':'📍 Signal strength needs Location on — Android hides tower readings while Location is off.',
 'افتح إعدادات الموقع في الهاتف':"Open the phone's Location settings",'فتح إعدادات الموقع':'Open Location settings',
 'سجّل لمعة هنا':'Log a flicker here','فتح إعدادات الشبكة (فرض 2G)':'Open network settings (force 2G)','فتح إعدادات الشبكة':'Open network settings',
-'🎯 صيد الإشارة':'🎯 Signal hunt','دلّني إلى أقرب لمعة معروفة':'Guide me to the nearest known flicker',
+'🎯 صيد الإشارة':'🎯 Signal hunt','دلّني إلى أقرب لمعة معروفة':'Guide me to the nearest known flicker','الأقرب مسافة':'Nearest by distance',
 'سهم اتجاه العودة':'Return direction arrow','المكان المثبّت الجديد':'Newest pinned place',
 'اضغط السهم لعرض الهدف على الخريطة، واتبع إشارة السهم إلى مكانك.':'Tap the arrow to show the target on the map, and follow the arrow back to your place.',
 '🔄 البدء من جديد':'🔄 Start over','↩ العودة إلى مكان مثبّت':'↩ Return to a pinned place',
@@ -494,7 +494,29 @@ $('btnAddPlace').onclick=()=>{
   const pl=state.places||[];pl.push({name:nm,lat:myLoc.lat,lng:myLoc.lng});
   GN&&GN.savePlaces(JSON.stringify(pl));state.places=pl;$('placeName').value='';renderPlaces();
 };
-$('btnLogFlicker').onclick=()=>{GN&&GN.addWhisper();setTimeout(refresh,450)};
+/* 1.193 (Hilal's field report, 2026-11-27 12:43): «سجّل لمعة هنا» on the
+   home page "did not work" — the press logged (or deduped, or refused)
+   in total silence, and the list it feeds lives on another page, so the
+   tap showed nothing at all. The bridge now returns a code and the press
+   ALWAYS answers on the button itself: what was logged, or the exact
+   reason it was not. One shared path for both log buttons. */
+function logFlickerNow(btn){
+  if(!GN||!GN.addWhisper)return;
+  let code=-1;try{code=parseInt(GN.addWhisper(),10)}catch(e){}
+  const old=btn?btn.textContent:'';
+  setTimeout(()=>{refresh();
+    if(!btn)return;
+    if(code===0){const ws=state.whispers||[];const w=ws[ws.length-1];btn.textContent='✓ '+L('سُجّلت','Logged')+(w?(' — '+(w.net||'')+(w.dbm!=null?' '+w.dbm+'dBm':'')):'');}
+    else if(code===1){btn.textContent=L('محفوظة من قبل — نفس الموضع قبل أقل من دقيقة','Already saved — same spot less than a minute ago');}
+    else if(code===2){alert(L('لا موقع بعد — فعّل GPS وانتظر ثوانٍ حتى تظهر نقطتك، ثم اضغط من جديد','No location yet — turn on GPS and wait a few seconds for your dot, then press again'));return;}
+    else{alert(L('تعذّر التسجيل على هذا الهاتف — أخبر جدّتك','Could not log on this phone — tell Grandma'));return;}
+    setTimeout(()=>{btn.textContent=old},2800);
+  },450);
+}
+$('btnLogFlicker').onclick=e=>logFlickerNow(e.currentTarget);
+/* 1.194 (Hilal, 2026-11-27 12:48): the flicker-card copy of this button
+   (1.193) was removed at his order the same hour — the card carries
+   «الأقرب مسافة» alone; logging stays on the home page, with feedback. */
 /* ---------- signal hunt (1.46) ---------- */
 let huntTimer=null,huntNet='gsm',huntSamples=[],huntBest=null;
 function huntTick(){
@@ -544,19 +566,24 @@ $('btnHuntBestMap').onclick=()=>{if(huntBest){closeHunt();openMapAt(huntBest.lat
 $('btnHuntForce').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNetSettings').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNearestFlicker').onclick=()=>{
+  // 1.191: the button stopped being silent (it had scrolled to an element
+  // removed in 1.154) and flew to arrowTargetObj's pick.
+  // 1.195 (Hilal's field report, 2026-11-27 12:53): that pick flew him to
+  // a two-day-old camp 1.14 km away while he was standing on today's
+  // flickers — arrowTargetObj prefers the closest flicker at least 30 m
+  // away (a return-target rule: never navigate to where you stand), so
+  // every flicker at his feet was invisible to it. This button's promise
+  // («الأقرب مسافة», his wording) is the LITERAL nearest: its own pick,
+  // and if the nearest flicker is under his feet it says so and stays.
+  if(!myLoc){alert(L('موقعك لم يصل بعد — فعّل GPS وانتظر ثوانٍ حتى تظهر نقطتك، ثم اضغط من جديد','Your location has not arrived yet — turn on GPS and wait a few seconds for your dot, then press again'));return}
+  const ws=state.whispers||[];
+  if(!ws.length){alert(L('لا لمعات مسجلة بعد — سجّل لمعة من الرئيسية أو امشِ حتى تلمع شبكة','No flickers recorded yet — log one from Home or walk until a network flickers'));return}
+  let near=null,nd=1e18;
+  ws.forEach(w=>{const d=hav(myLoc.lat,myLoc.lng,w.lat,w.lng);if(d<nd){nd=d;near=w}});
+  if(!near)return;
+  if(nd<30){alert(L('أنت واقف على لمعة الآن — الإشارة هنا: ','You are standing on a flicker right now — the signal is here: ')+(near.net||'')+(near.dbm!=null?' '+near.dbm+'dBm':''));return}
   $('arrowTarget').value='w';renderArrow();
-  // 1.191 (Hilal's field report, 2026-11-26 20:30): pressing this
-  // button did NOTHING visible — its old body scrolled to $('arrowCard'),
-  // an element removed from the page long ago (1.154), so the tap only
-  // re-armed the return arrow on another page in silence. The button
-  // now does what its label promises, the same way a flicker row does
-  // (1.99): open the map at the nearest known flicker and guide to it,
-  // reusing arrowTargetObj's own nearest computation. When there is
-  // nothing to guide to (no located flicker yet, or his location has
-  // not arrived) it says so in an alert — never silence again.
-  const t=arrowTargetObj();
-  if(t)openMapAt(t.lat,t.lng);
-  else alert(L('لا لمعة بموقع معروف بعد، أو موقعك لم يصل بعد — جرّب بعد ثوانٍ','No flicker with a known location yet, or your location has not arrived yet — try again in a few seconds'));
+  openMapAt(near.lat,near.lng);
 };
 $('btnSOS').onclick=()=>{
   if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
@@ -1212,9 +1239,13 @@ function openMap(){showPage('map')}
 // return-navigation opening. Self-heal: shortly after any map opening,
 // resize + repaint; if tiles still have not loaded, reload the style once so
 // every tile is re-requested.
-let mapHealT=null;
+let mapHealT=null,mapHealT0=null;
 function healMapSoon(){
   if(mapHealT)clearTimeout(mapHealT);
+  if(mapHealT0)clearTimeout(mapHealT0);
+  // 1.192: an early paint kick at 120 ms — the first frame after the page
+  // switch is the one this WebView most often leaves black.
+  mapHealT0=setTimeout(()=>{if(mapObj&&curPage==='map'){try{mapObj.resize();mapObj.triggerRepaint()}catch(e){}}},120);
   mapHealT=setTimeout(()=>{
     if(!mapObj||curPage!=='map')return;
     try{mapObj.resize();mapObj.triggerRepaint()}catch(e){}
@@ -1258,13 +1289,21 @@ function openMapAt(lat,lng){
         try{cam=mapObj.cameraForBounds([[myLoc.lng,myLoc.lat],[lng,lat]],{padding:110,maxZoom:14})}catch(e){}
         if(cam&&cam.center)mapObj.flyTo({center:cam.center,zoom:Math.min(cam.zoom,14)});
         else mapObj.flyTo({center:[lng,lat],zoom:14});
-        setTimeout(()=>{
+        /* 1.192: verify + repaint the moment the flight ends (moveend),
+           with a 900 ms fallback timer. 1.191 waited a flat 1800 ms —
+           when the first flight settled unpainted on this WebView, that
+           wait WAS the ~2 s of black in Hilal's 2026-11-27 recording. */
+        let verified=false;
+        const verify=()=>{
+          if(verified)return;verified=true;
           if(!mapObj||curPage!=='map')return;
           let inside=false;
           try{inside=mapObj.getBounds().contains([lng,lat])}catch(e){}
           if(!inside){try{mapObj.flyTo({center:[lng,lat],zoom:14})}catch(e){}}
           try{mapObj.triggerRepaint()}catch(e){}
-        },1800);
+        };
+        try{mapObj.once('moveend',verify)}catch(e){}
+        setTimeout(verify,900);
       }
       else mapObj.flyTo({center:[lng,lat],zoom:Math.max(mapObj.getZoom(),14)});
       updateNav();renderCompass();healMapSoon();}
@@ -1311,6 +1350,21 @@ function ensureMapLib(){
   sc.onerror=()=>{_mapLibState=0;setTimeout(initMap,60)};
   document.body.appendChild(sc);
 }
+/* 1.192: warm the engine script in the background once the home page has
+   settled (4 s after startup), so the first map tap of a session no longer
+   pays the 803 KB script load — the other half of the ~2 s black in
+   Hilal's 2026-11-27 recording. Script only: the map itself is still
+   created lazily at first open, exactly as 1.189 intended, and
+   ensureMapLib's state machine above already handles a preload in
+   flight (state 1) or finished (state 2) when the tap comes. */
+setTimeout(()=>{
+  if(window.maplibregl||_mapLibState!==0)return;
+  _mapLibState=1;
+  const sc=document.createElement('script');sc.src='maplibre-gl.js';
+  sc.onload=()=>{_mapLibState=2};
+  sc.onerror=()=>{_mapLibState=0};
+  document.body.appendChild(sc);
+},4000);
 function initMap(){
   if(!GN)return;
   if(!window.maplibregl||!window.MAP_STYLE_ROADS){
