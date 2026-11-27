@@ -211,7 +211,7 @@ function renderPlaces(){
   // 1.96: rebuild the target menu ONLY when its options truly change, and
   // never while it is open — rebuilding it every refresh/location fix made
   // the open menu flicker (Hilal's report, 2026-11-23).
-  const sig=pl.map(p=>p.name).join('|')+'#'+((state.whispers||[]).length?1:0);
+  const sig=pl.map(p=>p.name).join('|')+'#'+((state.whispers||[]).length?1:0)+'#'+uiLang;
   if(sig!==_selSig&&document.activeElement!==sel){
     _selSig=sig;
     const cur=sel.value;
@@ -262,7 +262,7 @@ $('arrowTarget').addEventListener('change',()=>{startedOver=false;renderArrow();
 let returnListOpen=false,_retSig='',startedOver=false;
 function renderReturnLists(){
   const pl=state.places||[],sel=$('arrowTarget');
-  const sig=(returnListOpen?'1':'0')+'#'+(sel?sel.value:'')+'#'+pl.map(p=>p.name+'@'+(myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'')).join('|')+'#'+((state.whispers||[]).length?1:0);
+  const sig=(returnListOpen?'1':'0')+'#'+(sel?sel.value:'')+'#'+pl.map(p=>p.name+'@'+(myLoc?fmtDist(hav(myLoc.lat,myLoc.lng,p.lat,p.lng)):'')).join('|')+'#'+((state.whispers||[]).length?1:0)+'#'+uiLang;
   if(sig===_retSig)return;_retSig=sig;
   [$('returnList'),$('homeReturnList')].forEach(box=>{
     if(!box)return;
@@ -359,7 +359,7 @@ let _flickSig='';
 function renderFlickers(){
   const list=$('flickerList');const ws=state.whispers||[];
   // 1.96: same anti-flicker guard — redraw only when the log truly changes.
-  const fsig=ws.length+'|'+(ws.length?ws[ws.length-1].at:'');
+  const fsig=ws.length+'|'+(ws.length?ws[ws.length-1].at:'')+'|'+uiLang;
   if(fsig===_flickSig)return; _flickSig=fsig;
   if(!ws.length){list.innerHTML='<p class="dim">'+L('لا لمعات مسجلة بعد — كل موضع تلمع فيه شبكة يُحفَظ هنا بصمت، وزرّ «سجّل لمعة هنا» يحفظ موضعك الحالي يدويًا.','No flickers recorded yet — every spot where a network flickers is saved here silently, and the Log-a-flicker button saves your current spot manually.')+'</p>';return}
   list.innerHTML='';
