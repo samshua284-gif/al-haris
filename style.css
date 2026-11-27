@@ -155,6 +155,12 @@ body{padding-bottom:96px}
    reach the app's own handlers (SOS cancel!) instead of starting the
    WebView's text selection (Hilal: pressing إلغاء selected its label). */
 button,.tab,.chip{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* 1.198 (Hilal's field report, 2026-11-27 17:17): a press anywhere in
+   the app raised the WebView text-selection popup (Copy / Select all)
+   over plain page text. The app is not a document: nothing outside
+   the text fields is selectable. */
+body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 
 /* 1.64: on-map guidance arrowhead — a pure CSS triangle (no glyph risk),
    rotated by JS to the true bearing; the marker element itself is moved

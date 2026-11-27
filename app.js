@@ -237,7 +237,7 @@ function arrowTargetObj(){
       if(d<nd){nd=d;near=w}
       if(d>=30&&d<bd){bd=d;best=w}});
     const pick=best||near;
-    return pick?{lat:pick.lat,lng:pick.lng,here:!best,
+    return pick?{lat:pick.lat,lng:pick.lng,kind:'w',here:!best,
       label:L('أقرب لمعة (','Nearest flicker (')+(pick.net||'')+' '+(pick.dbm||'')+'dBm)'}:null;
   }
   if(v&&v[0]==='p'){const p=(state.places||[])[+v.slice(1)];if(p)return{lat:p.lat,lng:p.lng,label:p.name}}
@@ -274,7 +274,7 @@ function renderReturnLists(){
       const d=document.createElement('div');d.className='placeRow retChip'+(sel&&sel.value===val?' sel':'');
       d.innerHTML='<span>'+label+' <span class="dim">'+dist+'</span></span>';
       d.onclick=()=>{if(sel)sel.value=val;startedOver=false;renderArrow();renderHomeArrow();
-        if(val==='w'){const t=arrowTargetObj();if(t)openMapAt(t.lat,t.lng);else openMap()}
+        if(val==='w'){const t=arrowTargetObj();if(t)openMapAt(t.lat,t.lng,'w');else openMap()}
         else{const p=pl[+val.slice(1)];if(p){unhidePlace(p);openMapAt(p.lat,p.lng)}}
         renderReturnLists()};
       box.appendChild(d);
@@ -290,8 +290,8 @@ function renderReturnLists(){
 [['btnReturnPickH',()=>{returnListOpen=!returnListOpen;renderReturnLists()}]
 ].forEach(([id,fn])=>{const b=$(id);if(b)b.onclick=fn});
 const jpEl=$('journeyPlace');if(jpEl)jpEl.onclick=()=>{const pl=state.places||[];if(!pl.length)return;const p=pl[pl.length-1];journeyPin={lat:p.lat,lng:p.lng};unhidePlace(p);openMapAt(p.lat,p.lng)};
-$('homeArrowGlyph').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
-$('homeArrowText').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
+$('homeArrowGlyph').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng,t.kind);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
+$('homeArrowText').onclick=()=>{if(startedOver){returnListOpen=true;renderReturnLists();return}const t=arrowTargetObj();if(t){openMapAt(t.lat,t.lng,t.kind);return}const p=nearestPlace();if(p)openMapAt(p.lat,p.lng);else openMap()};
 let headingUp=false,lastBearingApplied=null,courseFix=null,gpsCourse=null,gpsCourseTs=0;
 function effHeading(){return (gpsCourse!=null&&Date.now()-gpsCourseTs<25000)?gpsCourse:phoneHeading()}
 let azNative=null,azNativeTs=0;
@@ -368,7 +368,7 @@ function renderFlickers(){
     d.innerHTML='<span>📶 '+(w.net||L('شبكة','network'))+' '+(w.dbm||'')+'dBm</span><span class="dim">'+new Date(w.at).toLocaleString()+'</span>';
     // 1.99 (Hilal): a flicker row was display-only — now, like a saved
     // place, tapping it opens the map at the flicker and guides to it.
-    d.onclick=()=>{if(w.lat&&w.lng)openMapAt(w.lat,w.lng)};
+    d.onclick=()=>{if(w.lat&&w.lng)openMapAt(w.lat,w.lng,'w')};
     list.appendChild(d);
   });
 }
@@ -562,7 +562,7 @@ $('btnHunt').onclick=openHunt;
 $('btnHuntClose').onclick=closeHunt;
 $('huntNet2').onclick=()=>{huntNet='gsm';huntSamples=[];huntBest=null;$('huntNet2').classList.add('sel');$('huntNet4').classList.remove('sel');huntTick()};
 $('huntNet4').onclick=()=>{huntNet='lte';huntSamples=[];huntBest=null;$('huntNet4').classList.add('sel');$('huntNet2').classList.remove('sel');huntTick()};
-$('btnHuntBestMap').onclick=()=>{if(huntBest){closeHunt();openMapAt(huntBest.lat,huntBest.lng)}};
+$('btnHuntBestMap').onclick=()=>{if(huntBest){closeHunt();openMapAt(huntBest.lat,huntBest.lng,'w')}};
 $('btnHuntForce').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNetSettings').onclick=()=>{GN&&GN.openNetworkSettings()};
 $('btnNearestFlicker').onclick=()=>{
@@ -583,7 +583,7 @@ $('btnNearestFlicker').onclick=()=>{
   if(!near)return;
   if(nd<30){alert(L('أنت واقف على لمعة الآن — الإشارة هنا: ','You are standing on a flicker right now — the signal is here: ')+(near.net||'')+(near.dbm!=null?' '+near.dbm+'dBm':''));return}
   $('arrowTarget').value='w';renderArrow();
-  openMapAt(near.lat,near.lng);
+  openMapAt(near.lat,near.lng,'w');
 };
 $('btnSOS').onclick=()=>{
   if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
@@ -1228,7 +1228,7 @@ setInterval(()=>{if(!document.hidden&&GN&&GN.refreshSignal)GN.refreshSignal()},2
 
 /* ---------- offline map (MapLibre vector engine + locally downloaded tiles) ---------- */
 let mapObj=null,mapSatMode=false,mapMarkers=[],mapUserMarker=null,mapStyleOk=false,packRadius=500,packDownloading=false;
-let navTarget=null,navArrowMarker=null,navTgtMarker=null,navB=null;
+let navTarget=null,navKind='place',navArrowMarker=null,navTgtMarker=null,navB=null;
 let journeyPin=null;
 function rotDart(){if(!navArrowMarker||navB==null||!mapObj)return;const sp=navArrowMarker.getElement().firstChild;if(sp)sp.style.transform='rotate('+(navB-mapObj.getBearing())+'deg)'}
 function openMap(){showPage('map')}
@@ -1258,8 +1258,8 @@ function healMapSoon(){
   },350);
 }
 let navLine=null;
-function openMapAt(lat,lng){
-  navTarget={lat:lat,lng:lng};
+function openMapAt(lat,lng,kind){
+  navTarget={lat:lat,lng:lng};navKind=kind||'place';
   if(!journeyPin||journeyPin.lat!==lat||journeyPin.lng!==lng)journeyPin=null;
   /* 1.160: open a LINE SESSION for the along-track counter — the origin is
      the saved place he is standing on (<=30 m) when there is one (the
@@ -1630,7 +1630,11 @@ function updateNav(){
     // machine (arrivTick, see checkPinBells): it can appear only as
     // a RETURN — away beyond 25 m first, then back within 10 m.
     const arrived=arrivTick('tag:'+navTarget.lat.toFixed(5)+','+navTarget.lng.toFixed(5),dd,10,25).arrived;
-    const tag=arrived?(' <span style="color:#7dff9e;font-size:.72em;display:block">'+(journeyPin?L('✓ عند الدبوس','✓ At the pin'):L('✓ وصلت إلى الدبوس','✓ Arrived'))+'</span>'):'';
+    // 1.198 (Hilal's field report, 2026-11-27 17:15): the arrival tag
+    // named every target "the pin" — even a flicker he had navigated
+    // to. It now names the target actually armed: navKind is set
+    // where navigation opens (openMapAt's kind argument).
+    const tag=arrived?(' <span style="color:#7dff9e;font-size:.72em;display:block">'+(journeyPin?L('✓ عند الدبوس','✓ At the pin'):(navKind==='w'?L('✓ وصلت الإشارة','✓ Arrived at the signal'):L('✓ وصلت إلى الدبوس','✓ Arrived')))+'</span>'):'';
     nd.style.borderColor=arrived?'rgba(61,255,122,.65)':'';
     if(journeyPin){const lr2=lineRemaining();
       // 1.183: the pin branch joins the same display system — the
