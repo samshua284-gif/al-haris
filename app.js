@@ -600,10 +600,42 @@ $('btnNearestFlicker').onclick=()=>{
    buttons are disabled here and the native side refuses a second
    submission, so one press can never produce two sends. */
 let dsBusy=false,dsPermFor=null,dsLastKind='sos';
-function dsShow(txt,fallbackKind){
+/* ---------- 1.206 verdict lifecycle (Hilal's amendments) ----------
+   The status area holds exactly ONE current verdict: every render
+   replaces the previous one — text, success classes and the fallback
+   button's binding (dsFallbackKind) together — so verdicts never
+   pile up and the fallback always opens the NEWEST failed message.
+   A SUCCESS verdict (dsShowOk) clears itself back to idle after
+   1 minute; every non-success line rendered through dsShow — send
+   failures, the permission explanation / granted / denied lines and
+   the no-recipients notice — clears after 1 hour. The transient
+   «جارٍ الإرسال…» line carries NO timer of its own (lifeMs=null);
+   its verdict replaces it. Discipline: every render and every press
+   bumps the generation and cancels the previous timer, and a timer
+   may fire only for its own generation, so a stale timer can never
+   clear a newer verdict. Idle = the element's shipped state: empty,
+   hidden, no success classes, fallback hidden. */
+const DS_OK_CLEAR_MS=60*1000,DS_FAIL_CLEAR_MS=60*60*1000;
+let dsGen=0,dsTimer=null,dsFallbackKind=null;
+function dsArmClear(ms){
+  dsGen++;
+  if(dsTimer){clearTimeout(dsTimer);dsTimer=null}
+  if(ms==null)return;
+  const g=dsGen;
+  dsTimer=setTimeout(()=>{if(g!==dsGen)return;dsTimer=null;dsShowIdle()},ms);
+}
+function dsCancelClear(){dsGen++;if(dsTimer){clearTimeout(dsTimer);dsTimer=null}}
+function dsShowIdle(){
+  const s=$('sosSendStatus');if(s){s.textContent='';s.classList.add('hidden');s.classList.remove('dsOkSos','dsOkSafe')}
+  const b=$('btnFallbackComposer');if(b)b.classList.add('hidden');
+  dsFallbackKind=null;
+}
+function dsShow(txt,fallbackKind,lifeMs){
   const s=$('sosSendStatus');if(!s)return;
   if(txt){s.textContent=txt;s.classList.remove('hidden')}else{s.textContent='';s.classList.add('hidden')}
   s.classList.remove('dsOkSos','dsOkSafe');
+  dsFallbackKind=fallbackKind||null;
+  dsArmClear(txt?(lifeMs===undefined?DS_FAIL_CLEAR_MS:lifeMs):null);
   const b=$('btnFallbackComposer');if(!b)return;
   if(fallbackKind){
     b.textContent=fallbackKind==='safe'?L('📩 افتح رسالة «أنا بخير» في تطبيق الرسائل','📩 Open the "I am fine" message in the Messages app'):L('📩 افتح الاستغاثة في تطبيق الرسائل','📩 Open the SOS in the Messages app');
@@ -629,6 +661,10 @@ function dsShowOk(kind){
   s.classList.toggle('dsOkSafe',kind==='safe');
   s.classList.toggle('dsOkSos',kind!=='safe');
   const b=$('btnFallbackComposer');if(b)b.classList.add('hidden');
+  // 1.206: a success verdict replaces any previous verdict (no
+  // fallback belongs to it) and clears itself after 1 minute.
+  dsFallbackKind=null;
+  dsArmClear(DS_OK_CLEAR_MS);
 }
 function dsSetBusy(on){
   dsBusy=on;
@@ -646,6 +682,9 @@ function sendErrWord(code){
 }
 function pressDirect(kind){
   if(dsBusy)return;
+  // 1.206: a new press retires the previous verdict's clear-timer;
+  // whatever line this press renders arms a lifecycle of its own.
+  dsCancelClear();
   if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
   dsLastKind=kind;
   // The permission ask is a press of its own: the press after the
@@ -654,7 +693,7 @@ function pressDirect(kind){
   // A stale arm from the retired bow is cleared silently, as since 1.59.
   if(kind==='sos'&&state.armed&&GN&&GN.disarmSilent)GN.disarmSilent();
   const st=GN?(kind==='safe'?GN.pressSafe():GN.pressSos()):'sendfail';
-  if(st==='sending'){dsPermFor=null;dsSetBusy(true);dsShow(L('جارٍ الإرسال…','Sending…'),null)}
+  if(st==='sending'){dsPermFor=null;dsSetBusy(true);dsShow(L('جارٍ الإرسال…','Sending…'),null,null)}
   else if(st==='needperm'){dsPermFor=kind;dsShow(L('ليُرسل الحارس الرسالة بنفسه عند ضغطتك يحتاج إذن «إرسال الرسائل». اضغط الزر نفسه مرة أخرى لطلب الإذن من النظام — وبعد منحه اضغط مرة أخيرة للإرسال.','For the Guardian to send the message itself at your press it needs the "Send SMS" permission. Press the same button again to ask the system — after granting, press once more to send.'),null)}
   else if(st==='norecip'){dsShow(L('لا توجد أرقام استغاثة محفوظة — اكتب رقم مستقبِل واحدًا على الأقل في صفحة «الإعداد» أولًا.','No SOS numbers are saved — write at least one recipient number on the Settings page first.'),null)}
   else if(st==='busy'){/* a send is already in flight — this press is ignored */}
@@ -674,7 +713,10 @@ window.__onDirectResult=function(kind,ok,code){
   setTimeout(refresh,300);
 };
 $('btnFallbackComposer').onclick=()=>{
-  if(dsLastKind==='safe'){GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer()}
+  // 1.206: the button belongs to the CURRENT verdict (dsFallbackKind,
+  // set by the render that showed it) — it opens the newest failed
+  // message, never a leftover binding from an older verdict.
+  if((dsFallbackKind||dsLastKind)==='safe'){GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer()}
   else{GN&&GN.sendViaComposer&&GN.sendViaComposer()}
 };
 $('btnSOS').onclick=()=>pressDirect('sos');
