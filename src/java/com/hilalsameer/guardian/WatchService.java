@@ -51,7 +51,10 @@ public class WatchService extends Service {
                 }
             }
             if (!svc) { wasNoService = true; whisperPending = false; } else wasNoService = false;
-            G.tryFire(WatchService.this);
+            // 1.204: no tryFire here — under Hilal's reopened SOS spec
+            // (one message, at the press only, never automatically)
+            // nothing in the app sends without a press; the watcher
+            // only watches, logs flickers and minds the salawat.
             updateNotification();
             h.postDelayed(this, armed ? 8000 : 30000);
         }
@@ -112,7 +115,8 @@ public class WatchService extends Service {
                 @Override public void onServiceStateChanged(ServiceState ss) {
                     if (ss != null && ss.getState() == ServiceState.STATE_IN_SERVICE) {
                         G.logWhisper(WatchService.this, "لمعة");
-                        G.tryFire(WatchService.this);
+                        // 1.204: the flicker is logged, never fired —
+                        // sends happen only at a button press.
                     }
                 }
             }, PhoneStateListener.LISTEN_SERVICE_STATE);

@@ -195,6 +195,12 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "GN");
         setContentView(web);
         web.loadUrl("https://app.local/index.html");
+        // 1.204: the direct-send verdict receiver (see directPress below).
+        try {
+            android.content.IntentFilter dsf = new android.content.IntentFilter(DS_ACTION);
+            if (Build.VERSION.SDK_INT >= 33) registerReceiver(dsReceiver, dsf, Context.RECEIVER_NOT_EXPORTED);
+            else registerReceiver(dsReceiver, dsf);
+        } catch (Exception ignored) {}
         // 1.28: legacy Esri raster "roads" tiles are obsolete (vector engine now) — reclaim the space.
         new Thread(() -> deleteRecursive(new File(getFilesDir(), "tiles/roads"))).start();
         lm = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -206,6 +212,16 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int rc, String[] perms, int[] results) {
         super.onRequestPermissionsResult(rc, perms, results);
         for (int r : results) if (r == PackageManager.PERMISSION_GRANTED) { startWatcher(); break; }
+        // 1.204: the SOS permission answer goes back to the page, which
+        // tells him plainly — granted means "press the button again to
+        // send" (the press-again flow: a grant never sends by itself).
+        if (rc == DS_PERM_RC) {
+            boolean g = false;
+            for (int k = 0; k < perms.length; k++)
+                if (Manifest.permission.SEND_SMS.equals(perms[k]))
+                    g = k < results.length && results[k] == PackageManager.PERMISSION_GRANTED;
+            postJs("window.__onSmsPerm&&window.__onSmsPerm(" + g + ")");
+        }
     }
 
     private void requestPerms() {
@@ -319,6 +335,96 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
+    /* ---------- 1.204 direct send (Hilal's reopened SOS spec) ----------
+       «رسالة واحدة تذهب عند الضغط فقط لا تلقائيًا» — one message, sent at
+       the press only, never automatically. pressSos/pressSafe (Bridge)
+       submit ONE send per configured recipient through G.sendOnce; the
+       radio's per-part verdicts land in dsReceiver and are aggregated
+       here: «sent» is claimed only when every part of every recipient
+       reported RESULT_OK, the first failure verdict is reported at once
+       with its code, and 45 s of radio silence is reported as a timeout.
+       On any failure the page keeps the composer one tap away, so the
+       message is never silently lost. One session at a time: a press
+       while a send is in flight is refused ("busy"), in Java as well as
+       in the page — one press can never produce two sends. */
+    private static final String DS_ACTION = "com.hilalsameer.guardian.DIRECT_SENT";
+    private static final int DS_PERM_RC = 9;
+    private final Object dsLock = new Object();
+    private boolean dsActive = false;
+    private int dsToken = 0, dsExpected = 0, dsArrived = 0;
+    private String dsKind = "sos";
+    private final android.os.Handler dsHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable dsTimeout = () -> {
+        String js = null;
+        synchronized (dsLock) {
+            if (dsActive) { dsActive = false; js = directResultJs(dsKind, false, -1); }
+        }
+        if (js != null) postJs(js);
+    };
+    private final android.content.BroadcastReceiver dsReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            onDirectSent(i.getIntExtra("tk", -1), getResultCode());
+        }
+    };
+
+    private void postJs(final String js) {
+        if (web == null) return;
+        web.post(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) {} });
+    }
+
+    private static String directResultJs(String kind, boolean ok, int code) {
+        return "window.__onDirectResult&&window.__onDirectResult('" + kind + "'," + ok + "," + code + ")";
+    }
+
+    private void onDirectSent(int tk, int resultCode) {
+        String js = null;
+        synchronized (dsLock) {
+            if (!dsActive || tk != dsToken) return; // stale or duplicate verdict
+            if (resultCode != Activity.RESULT_OK) {
+                dsActive = false;
+                js = directResultJs(dsKind, false, resultCode);
+            } else if (++dsArrived >= dsExpected) {
+                dsActive = false;
+                js = directResultJs(dsKind, true, 0);
+            }
+            if (!dsActive) dsHandler.removeCallbacks(dsTimeout);
+        }
+        if (js != null) postJs(js);
+    }
+
+    /* The press itself. Returns a status word the page renders honestly:
+       "busy" (a send is already in flight), "norecip" (no recipient
+       configured), "needperm" (SEND_SMS not granted — the page explains,
+       and the next press asks the system), "sendfail" (the submission
+       itself threw), or "sending" (submitted; the verdict arrives via
+       __onDirectResult). The composition is the composer's own:
+       fillTemplate over the same template — never forked. */
+    private String directPress(boolean safe) {
+        synchronized (dsLock) {
+            if (dsActive) return "busy";
+            if (G.recipients(this).isEmpty()) return "norecip";
+            if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
+                return "needperm";
+            String text = G.fillTemplate(this, safe ? G.safeTemplate(this) : G.template(this));
+            dsToken++;
+            Intent i = new Intent(DS_ACTION).setPackage(getPackageName());
+            i.putExtra("tk", dsToken);
+            android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(this,
+                    7000 + (dsToken % 500), i,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                            | android.app.PendingIntent.FLAG_IMMUTABLE);
+            int expected = G.sendOnce(this, text, pi);
+            if (expected <= 0) return "sendfail";
+            dsKind = safe ? "safe" : "sos";
+            dsExpected = expected; dsArrived = 0; dsActive = true;
+            // A stale safe_pending from the retired bow is superseded by
+            // this very press — the all-clear no longer waits for a flicker.
+            if (safe) G.p(this).edit().putBoolean("safe_pending", false).apply();
+            dsHandler.postDelayed(dsTimeout, 45000);
+            return "sending";
+        }
+    }
+
     public class Bridge {
         @JavascriptInterface public String getSignal() { return G.signalJson(MainActivity.this).toString(); }
         @JavascriptInterface public void setSalawatOn(boolean on) { G.setSalawatOn(MainActivity.this, on); }
@@ -426,16 +532,16 @@ public class MainActivity extends Activity {
 
 
         @JavascriptInterface public void cancelSos() {
-            // Queue «أنا بخير» if the SOS was delivered — or merely sent, since a
-            // sent-but-unconfirmed message may still reach the recipient (1.50).
-            boolean wasDelivered = G.delivered(MainActivity.this);
-            boolean wasSent = G.sent(MainActivity.this);
-            android.content.SharedPreferences.Editor e = G.p(MainActivity.this).edit()
-                .putBoolean("armed", false);
-            if (wasDelivered || wasSent) e.putBoolean("safe_pending", true);
-            e.apply();
+            // 1.204: a cancel press now ONLY cancels. The retired bow used
+            // to queue «أنا بخير» here (safe_pending, if the SOS had been
+            // delivered or merely sent — 1.50) and fire it automatically
+            // at the next flicker via tryFire. Under Hilal's reopened
+            // spec — one message, at the press only, never automatically —
+            // the all-clear is sent solely by its own button (pressSafe),
+            // so nothing is queued and nothing is fired from here.
+            G.p(MainActivity.this).edit()
+                .putBoolean("armed", false).putBoolean("safe_pending", false).apply();
             startWatcher();
-            G.tryFire(MainActivity.this);
         }
 
         @JavascriptInterface public String addWhisper() { return String.valueOf(G.logWhisperEx(MainActivity.this, "يدوي")); }
@@ -502,6 +608,26 @@ public class MainActivity extends Activity {
                 i.putExtra("sms_body", G.fillTemplate(MainActivity.this, G.safeTemplate(MainActivity.this)));
                 startActivity(i);
             } catch (Exception ignored) {}
+        }
+
+        /* 1.204 (Hilal's reopened spec): the SOS button sends the message
+           ITSELF at the press — one message per configured recipient, via
+           the same SmsManager road Tamanina proved on his own phone. No
+           default-SMS role, no automatic anything: these two methods and
+           the permission request below are reachable only from the two
+           buttons' own press handlers in the page. The verdict returns
+           through __onDirectResult; on any failure the composer methods
+           above remain one tap away as the fallback. */
+        @JavascriptInterface public String pressSos() { return directPress(false); }
+        @JavascriptInterface public String pressSafe() { return directPress(true); }
+
+        /* The permission ask is its own press (see the page flow): the
+           first press explains, the second press calls this, and after
+           the system's answer he presses the send button once more —
+           a grant never turns into a send by itself. */
+        @JavascriptInterface public void requestSmsPermission() {
+            runOnUiThread(() -> requestPermissions(
+                    new String[] { Manifest.permission.SEND_SMS }, DS_PERM_RC));
         }
 
         @JavascriptInterface public void openNetworkSettings() {

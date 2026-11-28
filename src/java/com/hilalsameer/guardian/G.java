@@ -450,9 +450,35 @@ public class G {
         } catch (Exception e) { return false; }
     }
 
+    /* 1.204 (Hilal reopened the SOS file with a locked spec — «رسالة
+       واحدة تذهب عند الضغط فقط لا تلقائيًا», one message, at the press
+       only, never automatically): the press-only send. ONE attempt per
+       recipient, no retries, no delivery tracking — the caller's sent
+       intent rides every part, and the caller counts the radio's
+       verdicts. Returns the number of verdicts to expect
+       (parts × recipients), 0 when no recipient is configured, or -1
+       when the submission itself failed. Recipients come from the same
+       recipients() choke point as every other path. */
+    public static int sendOnce(Context c, String text, android.app.PendingIntent sentIntent) {
+        List<String> rcpts = recipients(c);
+        if (rcpts.isEmpty()) return 0;
+        try {
+            SmsManager sm = sendManager(c);
+            ArrayList<String> parts = sm.divideMessage(text);
+            ArrayList<android.app.PendingIntent> sentIntents = new ArrayList<>();
+            for (int i = 0; i < parts.size(); i++) sentIntents.add(sentIntent);
+            for (String r : rcpts) sm.sendMultipartTextMessage(r, null, parts, sentIntents, null);
+            return parts.size() * rcpts.size();
+        } catch (Exception e) { return -1; }
+    }
+
     /** The bow looses: fire SOS if armed & unconfirmed; re-fire until the network's
         delivery report confirms arrival (the original covenant — until 1.49 the code
-        marked "delivered" the moment the send call merely did not throw). */
+        marked "delivered" the moment the send call merely did not throw).
+        1.204: RETIRED — Hilal's reopened spec (one message, at the press
+        only, never automatically) removed every caller of this method
+        (the WatchService ticks and cancelSos). It stays as history;
+        nothing in the app calls it, so no unpressed send path is live. */
     public static synchronized void tryFire(Context c) {
         if (!hasService(c)) return;
         SharedPreferences sp = p(c);

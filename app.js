@@ -24,10 +24,11 @@ const AR2EN={
 '🔄 البدء من جديد':'🔄 Start over','↩ العودة إلى مكان مثبّت':'↩ Return to a pinned place',
 '«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.':'"Return to a pinned place" opens your saved places under their current names — pick one and the arrow points to it; tap the arrow itself to show it on the map.',
 '🆘 استغاثة SOS':'🆘 SOS',
-'زرّ الاستغاثة يفتح تطبيق رسائلك ورسالتك مبنية كاملة بموقعك الحي — تضغط «إرسال» هناك مرة واحدة. لا يُرسَل شيء تلقائيًا من هنا.':'The SOS button opens your Messages app with your message fully built with your live location — you tap "Send" there once. Nothing is sent automatically from here.',
+'زرّ الاستغاثة يرسل رسالتك بنفسه عند ضغطتك — رسالة واحدة مبنية كاملة بموقعك الحي. لا يُرسَل شيء أبدًا دون ضغطتك.':'The SOS button sends your message itself when you press it — one message, fully built with your live location. Nothing is ever sent without your press.',
+'📩 افتحها في تطبيق الرسائل':'📩 Open it in the Messages app',
 '📩 افتحها في تطبيق الرسائل — إرسال مضمون من هاتفك':'📩 Open it in Messages — sending guaranteed from your phone',
 'إلغاء الاستغاثة (اضغط مطوّلًا)':'Cancel SOS (press and hold)','أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)':"I'm fine — cancel the SOS (press and hold)",
-'ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.':'An "I am fine" message will be sent at the first flicker, with the same drawn-bow mechanism.',
+'اضغط زر «أنا بخير» في الأعلى متى أردت إرسال رسالة الطمأنينة بنفسك — لا تُرسَل إلا بضغطتك.':'Press the "I am fine" button above whenever you want to send the all-clear yourself — it is sent only by your press.',
 '🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.':'🔴 Armed — watching the network… your message will fly at the first flicker of coverage.',
 'الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.':'The long press is intentional — protection against accidental touches in your pocket.',
 'الخريطة — تعمل بلا إنترنت':'The map — works with no internet','افتح الخريطة':'Open the map',
@@ -335,8 +336,8 @@ function renderSos(){
   $('sosSent').classList.toggle('hidden',!(armed&&del));
   $('sosPanel').classList.toggle('dangerCard',armed&&!del);
   if(!armed){
-    $('sosReadyState').textContent=sp?L('أُلغيت الاستغاثة — رسالة «أنا بخير» تنتظر أول لمعة لتطير.','The SOS was cancelled — the "I am fine" message waits for the first flicker to fly.'):
-      (state.name&&state.recipients?L('رسالتك مبنية وموقعك يُحدَّث — الزرّ يفتحها في تطبيق رسائلك جاهزة، وتضغط «إرسال» هناك.','Your message is built and your location updates — the button opens it ready in your Messages app, and you tap "Send" there.'):L('أكمل «الإعداد» أسفل الصفحة أولًا: اسمك ورقم مستقبِل واحد على الأقل.','Complete "Settings" at the bottom of the page first: your name and at least one recipient number.'));
+    $('sosReadyState').textContent=sp?L('أُلغيت الاستغاثة — اضغط زر «أنا بخير» متى أردت إرسال رسالة الطمأنينة بنفسك؛ لا تُرسَل إلا بضغطتك.','The SOS was cancelled — press the "I am fine" button whenever you want to send the all-clear yourself; it is sent only by your press.'):
+      (state.name&&state.recipients?L('رسالتك مبنية وموقعك يُحدَّث — الزرّ يرسلها بنفسه عند ضغطتك، رسالة واحدة فقط.','Your message is built and your location updates — the button sends it itself at your press, one message only.'):L('أكمل «الإعداد» أسفل الصفحة أولًا: اسمك ورقم مستقبِل واحد على الأقل.','Complete "Settings" at the bottom of the page first: your name and at least one recipient number.'));
   }
   if(armed&&!del){
     // 1.54: the rejection reason must show in BOTH armed branches — after a
@@ -585,21 +586,72 @@ $('btnNearestFlicker').onclick=()=>{
   $('arrowTarget').value='w';renderArrow();
   openMapAt(near.lat,near.lng,'w');
 };
-$('btnSOS').onclick=()=>{
+/* ---------- 1.204 direct send (Hilal's reopened SOS spec) ----------
+   «رسالة واحدة تذهب عند الضغط فقط لا تلقائيًا» — one message, at the
+   press only, never automatically. The press asks the native side to
+   send ONCE (GN.pressSos / GN.pressSafe); the verdict returns through
+   __onDirectResult and is rendered honestly below the buttons: «أُرسلت»
+   only on the radio's OK, otherwise the reason in words plus the
+   composer fallback one tap away — the message is never silently lost.
+   Permission flow (documented, press-again): a press without the
+   SEND_SMS grant only EXPLAINS; the next press on the same button asks
+   the system; after the grant he presses once more to send — a grant
+   never sends by itself. Single-shot: while a send is in flight both
+   buttons are disabled here and the native side refuses a second
+   submission, so one press can never produce two sends. */
+let dsBusy=false,dsPermFor=null,dsLastKind='sos';
+function dsShow(txt,fallbackKind){
+  const s=$('sosSendStatus');if(!s)return;
+  if(txt){s.textContent=txt;s.classList.remove('hidden')}else{s.textContent='';s.classList.add('hidden')}
+  const b=$('btnFallbackComposer');if(!b)return;
+  if(fallbackKind){
+    b.textContent=fallbackKind==='safe'?L('📩 افتح رسالة «أنا بخير» في تطبيق الرسائل','📩 Open the "I am fine" message in the Messages app'):L('📩 افتح الاستغاثة في تطبيق الرسائل','📩 Open the SOS in the Messages app');
+    b.classList.remove('hidden');
+  }else b.classList.add('hidden');
+}
+function dsSetBusy(on){
+  dsBusy=on;
+  $('btnSOS').disabled=on;$('btnSafeSend').disabled=on;
+}
+function sendErrWord(code){
+  const errs={1:L('خطأ عام من الشبكة','General network error'),2:L('الراديو مغلق (وضع طيران؟)','Radio off (airplane mode?)'),3:L('بنية رسالة فارغة','Empty message body'),4:L('لا خدمة خلوية في تلك اللحظة','No cellular service at that moment'),5:L('تجاوز حدّ إرسال الرسائل','Message sending limit exceeded'),6:L('قيود أرقام ثابتة (FDN)','Fixed dialling number (FDN) restrictions'),7:L('الرقم القصير محظور','Short code blocked'),8:L('الرقم القصير محظور دائمًا','Short code permanently blocked'),9:L('الراديو غير متاح','Radio not available'),10:L('رفض صريح من الشبكة','Explicit network rejection'),15:L('خطأ في النظام','System error'),16:L('خطأ في المودم','Modem error'),17:L('خطأ شبكة لحظة الإرسال — كثيرًا ما يرتبط بمكالمات الواي فاي؛ جرّب إطفاء الواي فاي','Network error at send time — often linked to Wi-Fi calling; try turning Wi-Fi off'),18:L('خطأ في ترميز الرسالة','Message encoding error'),30:L('فشلت إعادة محاولة الإرسال','The send retry failed')};
+  return errs[code]||(L('رمز ','code ')+code);
+}
+function pressDirect(kind){
+  if(dsBusy)return;
   if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
-  // 1.59 (Hilal's order): the SOS button no longer arms or sends anything —
-  // it opens the stock Messages app with the SOS built and addressed; his
-  // own tap on Send there is the only send. A stale arm is disarmed silently.
-  if(state.armed&&GN&&GN.disarmSilent)GN.disarmSilent();
-  GN&&GN.sendViaComposer&&GN.sendViaComposer();
+  dsLastKind=kind;
+  // The permission ask is a press of its own: the press after the
+  // explanation calls the system request, nothing more.
+  if(dsPermFor===kind){dsPermFor=null;GN&&GN.requestSmsPermission&&GN.requestSmsPermission();return}
+  // A stale arm from the retired bow is cleared silently, as since 1.59.
+  if(kind==='sos'&&state.armed&&GN&&GN.disarmSilent)GN.disarmSilent();
+  const st=GN?(kind==='safe'?GN.pressSafe():GN.pressSos()):'sendfail';
+  if(st==='sending'){dsPermFor=null;dsSetBusy(true);dsShow(L('جارٍ الإرسال…','Sending…'),null)}
+  else if(st==='needperm'){dsPermFor=kind;dsShow(L('ليُرسل الحارس الرسالة بنفسه عند ضغطتك يحتاج إذن «إرسال الرسائل». اضغط الزر نفسه مرة أخرى لطلب الإذن من النظام — وبعد منحه اضغط مرة أخيرة للإرسال.','For the Guardian to send the message itself at your press it needs the "Send SMS" permission. Press the same button again to ask the system — after granting, press once more to send.'),null)}
+  else if(st==='norecip'){dsShow(L('لا توجد أرقام استغاثة محفوظة — اكتب رقم مستقبِل واحدًا على الأقل في صفحة «الإعداد» أولًا.','No SOS numbers are saved — write at least one recipient number on the Settings page first.'),null)}
+  else if(st==='busy'){/* a send is already in flight — this press is ignored */}
+  else{dsShow(L('تعذّر بدء الإرسال من التطبيق. رسالتك لم تضِع — افتحها في تطبيق الرسائل وأرسلها من هناك:','The app could not start the send. Your message is not lost — open it in the Messages app and send it from there:'),kind)}
+}
+window.__onSmsPerm=function(granted){
+  if(granted){dsShow(L('مُنح الإذن ✓ — اضغط الزر مرة أخرى للإرسال.','Permission granted ✓ — press the button again to send.'),null)}
+  else{dsShow(L('رُفض إذن إرسال الرسائل — لن يستطيع الحارس الإرسال بنفسه. رسالتك لم تضِع: افتحها في تطبيق الرسائل وأرسلها من هناك:','The SMS permission was denied — the Guardian cannot send by itself. Your message is not lost: open it in the Messages app and send it from there:'),dsLastKind)}
+};
+window.__onDirectResult=function(kind,ok,code){
+  dsSetBusy(false);
+  if(ok){dsShow(kind==='safe'?L('أُرسلت رسالة «أنا بخير» ✓','The "I am fine" message was sent ✓'):L('أُرسلت رسالة الاستغاثة ✓','The SOS message was sent ✓'),null)}
+  else{
+    const reason=code===-1?L('لم يصل ردّ من الراديو خلال ٤٥ ثانية','No answer from the radio within 45 seconds'):sendErrWord(code);
+    dsShow(L('لم تُرسَل: ','Not sent: ')+reason+L(' — رسالتك لم تضِع: افتحها في تطبيق الرسائل وأرسلها من هناك:',' — your message is not lost: open it in the Messages app and send it from there:'),kind);
+  }
   setTimeout(refresh,300);
 };
-$('btnSafeSend').onclick=()=>{
-  if(!state.name||!state.recipients){alert(L('أكمل الإعداد أولًا: اسمك ورقم مستقبِل واحد على الأقل (في صفحة «الإعداد»)','Complete the setup first: your name and at least one recipient number (on the Settings page)'));showPage('setup');return}
-  // 1.142: the all-clear twin of the SOS button — opens the stock
-  // Messages composer with the safe template built; he sends it himself.
-  GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer();
+$('btnFallbackComposer').onclick=()=>{
+  if(dsLastKind==='safe'){GN&&GN.sendSafeViaComposer&&GN.sendSafeViaComposer()}
+  else{GN&&GN.sendViaComposer&&GN.sendViaComposer()}
 };
+$('btnSOS').onclick=()=>pressDirect('sos');
+$('btnSafeSend').onclick=()=>pressDirect('safe');
 // 1.144: project-repository row at the foot of the Settings page —
 // tapping the link hands the URL to the phone's browser (the app
 // itself stays permission-free), and the copy button puts the link

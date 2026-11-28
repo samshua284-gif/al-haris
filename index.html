@@ -123,8 +123,10 @@
 
   <section class="card" id="sosPanel">
     <div id="sosIdle">
-      <p>زرّ الاستغاثة يفتح تطبيق رسائلك ورسالتك مبنية كاملة بموقعك الحي — تضغط «إرسال» هناك مرة واحدة. لا يُرسَل شيء تلقائيًا من هنا.</p>
+      <p>زرّ الاستغاثة يرسل رسالتك بنفسه عند ضغطتك — رسالة واحدة مبنية كاملة بموقعك الحي. لا يُرسَل شيء أبدًا دون ضغطتك.</p>
       <p class="dim" id="sosReadyState">…</p>
+      <p id="sosSendStatus" class="hidden"></p>
+      <button class="btn gold hidden" id="btnFallbackComposer">📩 افتحها في تطبيق الرسائل</button>
     </div>
     <div id="sosArmed" class="hidden">
       <p class="armedText" id="sosArmHead">🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.</p>
@@ -136,7 +138,7 @@
     <div id="sosSent" class="hidden">
       <p class="sentText">✅ تأكّد وصول رسالة الاستغاثة إلى هاتف المستقبِل (تقرير تسليم من الشبكة).</p>
       <button class="btn danger" id="btnCancelAfter">أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)</button>
-      <p class="dim">ستُرسَل رسالة «أنا بخير» عند أول لمعة بنفس آلية القوس المشدود.</p>
+      <p class="dim">اضغط زر «أنا بخير» في الأعلى متى أردت إرسال رسالة الطمأنينة بنفسك — لا تُرسَل إلا بضغطتك.</p>
     </div>
   </section>
 </main>
@@ -262,7 +264,7 @@
     <p class="dim">كل شيء يُحفَظ على هاتفك فقط. لا حسابات ولا خوادم ولا إنترنت.</p>
   </section>
 
-  <footer class="dim center">الحارس 1.203 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
+  <footer class="dim center">الحارس 1.204 — مشروع مجاني لكل إنسان، في كل بلد.</footer>
 
   <section class="repoCard">
     <div class="repoTitle">مستودع المشروع على GitHub</div>
