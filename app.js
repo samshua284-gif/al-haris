@@ -603,15 +603,42 @@ let dsBusy=false,dsPermFor=null,dsLastKind='sos';
 function dsShow(txt,fallbackKind){
   const s=$('sosSendStatus');if(!s)return;
   if(txt){s.textContent=txt;s.classList.remove('hidden')}else{s.textContent='';s.classList.add('hidden')}
+  s.classList.remove('dsOkSos','dsOkSafe');
   const b=$('btnFallbackComposer');if(!b)return;
   if(fallbackKind){
     b.textContent=fallbackKind==='safe'?L('📩 افتح رسالة «أنا بخير» في تطبيق الرسائل','📩 Open the "I am fine" message in the Messages app'):L('📩 افتح الاستغاثة في تطبيق الرسائل','📩 Open the SOS in the Messages app');
     b.classList.remove('hidden');
   }else b.classList.add('hidden');
 }
+/* 1.205 cosmetic (Hilal's order): the two SUCCESS verdicts render in
+   colour — blue for the SOS, green for «أنا بخير» — with the ✓ itself
+   kept white in its own span. The visible strings are byte-identical
+   to the plain line's; only the rendering wraps them. The colour is
+   chosen by verdict KIND (the `kind` the native side reports), never
+   by matching the text, so both UI languages behave the same. Every
+   other status line keeps its plain rendering via dsShow above. */
+function dsShowOk(kind){
+  const s=$('sosSendStatus');if(!s)return;
+  const full=kind==='safe'?L('أُرسلت رسالة «أنا بخير» ✓','The "I am fine" message was sent ✓'):L('أُرسلت رسالة الاستغاثة ✓','The SOS message was sent ✓');
+  const i=full.lastIndexOf('✓');
+  s.textContent='';
+  s.appendChild(document.createTextNode(i>=0?full.slice(0,i):full));
+  const tick=document.createElement('span');tick.className='dsTick';tick.textContent='✓';
+  s.appendChild(tick);
+  s.classList.remove('hidden');
+  s.classList.toggle('dsOkSafe',kind==='safe');
+  s.classList.toggle('dsOkSos',kind!=='safe');
+  const b=$('btnFallbackComposer');if(b)b.classList.add('hidden');
+}
 function dsSetBusy(on){
   dsBusy=on;
   $('btnSOS').disabled=on;$('btnSafeSend').disabled=on;
+  // 1.205 cosmetic: the PRESSED button (dsLastKind, set by pressDirect
+  // before the flight begins) looks pressed — dimmed — for exactly the
+  // in-flight window; the other button keeps its normal look, and full
+  // brightness returns when the verdict re-enables both.
+  $('btnSOS').classList.toggle('dsPressed',on&&dsLastKind==='sos');
+  $('btnSafeSend').classList.toggle('dsPressed',on&&dsLastKind==='safe');
 }
 function sendErrWord(code){
   const errs={1:L('خطأ عام من الشبكة','General network error'),2:L('الراديو مغلق (وضع طيران؟)','Radio off (airplane mode?)'),3:L('بنية رسالة فارغة','Empty message body'),4:L('لا خدمة خلوية في تلك اللحظة','No cellular service at that moment'),5:L('تجاوز حدّ إرسال الرسائل','Message sending limit exceeded'),6:L('قيود أرقام ثابتة (FDN)','Fixed dialling number (FDN) restrictions'),7:L('الرقم القصير محظور','Short code blocked'),8:L('الرقم القصير محظور دائمًا','Short code permanently blocked'),9:L('الراديو غير متاح','Radio not available'),10:L('رفض صريح من الشبكة','Explicit network rejection'),15:L('خطأ في النظام','System error'),16:L('خطأ في المودم','Modem error'),17:L('خطأ شبكة لحظة الإرسال — كثيرًا ما يرتبط بمكالمات الواي فاي؛ جرّب إطفاء الواي فاي','Network error at send time — often linked to Wi-Fi calling; try turning Wi-Fi off'),18:L('خطأ في ترميز الرسالة','Message encoding error'),30:L('فشلت إعادة محاولة الإرسال','The send retry failed')};
@@ -639,7 +666,7 @@ window.__onSmsPerm=function(granted){
 };
 window.__onDirectResult=function(kind,ok,code){
   dsSetBusy(false);
-  if(ok){dsShow(kind==='safe'?L('أُرسلت رسالة «أنا بخير» ✓','The "I am fine" message was sent ✓'):L('أُرسلت رسالة الاستغاثة ✓','The SOS message was sent ✓'),null)}
+  if(ok){dsShowOk(kind)}
   else{
     const reason=code===-1?L('لم يصل ردّ من الراديو خلال ٤٥ ثانية','No answer from the radio within 45 seconds'):sendErrWord(code);
     dsShow(L('لم تُرسَل: ','Not sent: ')+reason+L(' — رسالتك لم تضِع: افتحها في تطبيق الرسائل وأرسلها من هناك:',' — your message is not lost: open it in the Messages app and send it from there:'),kind);

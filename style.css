@@ -113,6 +113,14 @@ textarea.inp{resize:vertical}
 #btnSOS:active{transform:scale(.98)}
 #btnSafeSend{display:block;width:100%;padding:13px;font-size:17px;font-weight:800;color:#eafff3;background:linear-gradient(180deg,#1d7a4c,#14532d);border:1.5px solid #4ade80;border-radius:15px;cursor:pointer;margin:-6px 0 16px;font-family:inherit}
 #btnSafeSend:active{transform:scale(.98)}
+/* 1.205 cosmetic (Hilal's order): the pressed send button looks pressed
+   — dimmed for exactly the in-flight window; the other stays normal. */
+#btnSOS.dsPressed,#btnSafeSend.dsPressed{opacity:.55}
+/* 1.205 cosmetic: success verdict colours on the send-status line —
+   blue for the SOS, green for «أنا بخير», the ✓ itself always white. */
+#sosSendStatus.dsOkSos{color:#57a8ff}
+#sosSendStatus.dsOkSafe{color:#3ddc74}
+#sosSendStatus .dsTick{color:#fff}
 .armedText{color:#ff9d94;font-size:16.5px;font-weight:700;line-height:1.7}
 .sentText{color:#7ee2a0;font-size:16.5px;font-weight:700}
 .hidden{display:none!important}
