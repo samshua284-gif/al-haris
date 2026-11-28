@@ -24,11 +24,11 @@ const AR2EN={
 '🔄 البدء من جديد':'🔄 Start over','↩ العودة إلى مكان مثبّت':'↩ Return to a pinned place',
 '«العودة إلى مكان مثبّت» تفتح أماكنك المحفوظة بأسمائها الحالية — اختر واحدًا فيشير السهم إليه، واضغط السهم نفسه لعرضه على الخريطة.':'"Return to a pinned place" opens your saved places under their current names — pick one and the arrow points to it; tap the arrow itself to show it on the map.',
 '🆘 استغاثة SOS':'🆘 SOS',
-'زرّ الاستغاثة يرسل رسالتك بنفسه عند ضغطتك — رسالة واحدة مبنية كاملة بموقعك الحي. لا يُرسَل شيء أبدًا دون ضغطتك.':'The SOS button sends your message itself when you press it — one message, fully built with your live location. Nothing is ever sent without your press.',
+'زرّ الاستغاثة يرسل رسالتك بنفسه عند ضغط الزر — رسالة واحدة مبنية كاملة بموقعك الحي. لا يُرسل شيء أبدًا بدون إذنك.':'The SOS button sends your message itself when the button is pressed — one message, fully built with your live location. Nothing is ever sent without your permission.',
 '📩 افتحها في تطبيق الرسائل':'📩 Open it in the Messages app',
 '📩 افتحها في تطبيق الرسائل — إرسال مضمون من هاتفك':'📩 Open it in Messages — sending guaranteed from your phone',
 'إلغاء الاستغاثة (اضغط مطوّلًا)':'Cancel SOS (press and hold)','أنا بخير — ألغِ الاستغاثة (اضغط مطوّلًا)':"I'm fine — cancel the SOS (press and hold)",
-'اضغط زر «أنا بخير» في الأعلى متى أردت إرسال رسالة الطمأنينة بنفسك — لا تُرسَل إلا بضغطتك.':'Press the "I am fine" button above whenever you want to send the all-clear yourself — it is sent only by your press.',
+'اضغط زر «أنا بخير» في الأعلى متى أردت إرسال رسالة الطمأنينة بنفسك — لا تُرسَل إلا بإذنك.':'Press the "I am fine" button above whenever you want to send the all-clear yourself — it is sent only with your permission.',
 '🔴 مُسلَّحة — أراقب الشبكة… ستطير رسالتك عند أول لمعة تغطية.':'🔴 Armed — watching the network… your message will fly at the first flicker of coverage.',
 'الضغطة المطوّلة مقصودة — حماية من اللمس العارض في الجيب.':'The long press is intentional — protection against accidental touches in your pocket.',
 'الخريطة — تعمل بلا إنترنت':'The map — works with no internet','افتح الخريطة':'Open the map',
@@ -336,8 +336,8 @@ function renderSos(){
   $('sosSent').classList.toggle('hidden',!(armed&&del));
   $('sosPanel').classList.toggle('dangerCard',armed&&!del);
   if(!armed){
-    $('sosReadyState').textContent=sp?L('أُلغيت الاستغاثة — اضغط زر «أنا بخير» متى أردت إرسال رسالة الطمأنينة بنفسك؛ لا تُرسَل إلا بضغطتك.','The SOS was cancelled — press the "I am fine" button whenever you want to send the all-clear yourself; it is sent only by your press.'):
-      (state.name&&state.recipients?L('رسالتك مبنية وموقعك يُحدَّث — الزرّ يرسلها بنفسه عند ضغطتك، رسالة واحدة فقط.','Your message is built and your location updates — the button sends it itself at your press, one message only.'):L('أكمل «الإعداد» أسفل الصفحة أولًا: اسمك ورقم مستقبِل واحد على الأقل.','Complete "Settings" at the bottom of the page first: your name and at least one recipient number.'));
+    $('sosReadyState').textContent=sp?L('أُلغيت الاستغاثة — اضغط زر «أنا بخير» متى أردت إرسال رسالة الطمأنينة بنفسك؛ لا تُرسَل إلا بإذنك.','The SOS was cancelled — press the "I am fine" button whenever you want to send the all-clear yourself; it is sent only with your permission.'):
+      (state.name&&state.recipients?L('رسالتك مبنية وموقعك يُحدَّث — رسالة واحدة فقط.','Your message is built and your location updates — one message only.'):L('أكمل «الإعداد» أسفل الصفحة أولًا: اسمك ورقم مستقبِل واحد على الأقل.','Complete "Settings" at the bottom of the page first: your name and at least one recipient number.'));
   }
   if(armed&&!del){
     // 1.54: the rejection reason must show in BOTH armed branches — after a
