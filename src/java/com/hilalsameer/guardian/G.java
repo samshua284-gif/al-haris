@@ -59,10 +59,19 @@ public class G {
             return en(c) ? SAFE_EN : SAFE_AR;
         return t;
     }
+    /* 1.203 (Hilal's order): the numbers work in every country — each
+       number is used exactly as the user typed it. Entries split on
+       commas or new lines (the settings field is one-per-line);
+       spaces, dashes and parentheses are stripped; a leading + the
+       user typed is preserved. Nothing is ever prepended: no country
+       code is assumed anywhere, and no length is validated. */
     public static List<String> recipients(Context c) {
         List<String> out = new ArrayList<>();
         String csv = p(c).getString("recipients", "");
-        for (String s : csv.split(",")) { s = s.trim(); if (!s.isEmpty()) out.add(s); }
+        for (String s : csv.split("[,\\n]")) {
+            s = s.replaceAll("[\\s\\-()]", "");
+            if (!s.isEmpty()) out.add(s);
+        }
         return out;
     }
     public static boolean armed(Context c) { return p(c).getBoolean("armed", false); }
