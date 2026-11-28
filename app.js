@@ -694,7 +694,7 @@ function pressDirect(kind){
   if(kind==='sos'&&state.armed&&GN&&GN.disarmSilent)GN.disarmSilent();
   const st=GN?(kind==='safe'?GN.pressSafe():GN.pressSos()):'sendfail';
   if(st==='sending'){dsPermFor=null;dsSetBusy(true);dsShow(L('جارٍ الإرسال…','Sending…'),null,null)}
-  else if(st==='needperm'){dsPermFor=kind;dsShow(L('ليُرسل الحارس الرسالة بنفسه عند ضغطتك يحتاج إذن «إرسال الرسائل». اضغط الزر نفسه مرة أخرى لطلب الإذن من النظام — وبعد منحه اضغط مرة أخيرة للإرسال.','For the Guardian to send the message itself at your press it needs the "Send SMS" permission. Press the same button again to ask the system — after granting, press once more to send.'),null)}
+  else if(st==='needperm'){dsPermFor=kind;dsShow(L('ليُرسل الحارس الرسالة بنفسه بإذنك يحتاج إذن «إرسال الرسائل». اضغط الزر نفسه مرة أخرى لطلب الإذن من النظام — وبعد منحه اضغط مرة أخيرة للإرسال.','For the Guardian to send the message itself with your permission it needs the "Send SMS" permission. Press the same button again to ask the system — after granting, press once more to send.'),null)}
   else if(st==='norecip'){dsShow(L('لا توجد أرقام استغاثة محفوظة — اكتب رقم مستقبِل واحدًا على الأقل في صفحة «الإعداد» أولًا.','No SOS numbers are saved — write at least one recipient number on the Settings page first.'),null)}
   else if(st==='busy'){/* a send is already in flight — this press is ignored */}
   else{dsShow(L('تعذّر بدء الإرسال من التطبيق. رسالتك لم تضِع — افتحها في تطبيق الرسائل وأرسلها من هناك:','The app could not start the send. Your message is not lost — open it in the Messages app and send it from there:'),kind)}
